@@ -3,10 +3,11 @@ import tkinter.ttk as ttk
 import threading
 import queue
 import time
+import collections
 from pathlib import Path
 from datetime import datetime
 from storage import load_reminders, add_reminder
-from detector import detect_reminder
+from detector import detect_reminder, fetch_ollama_models
 
 # ── Farben & Stil ──────────────────────────────────────────────────────────
 BG       = "#0f0f0f"
@@ -30,6 +31,9 @@ WHISPER_MODELS = {
     "large":  {"size": "~3 GB",   "speed": "Sehr langsam", "mb": 3000},
 }
 
+# Wie viele Sprach-Segmente werden zusammen analysiert (Kontext-Fenster)
+CONTEXT_WINDOW = 5
+
 
 def is_model_cached(model_name: str) -> bool:
     cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
@@ -50,15 +54,16 @@ class ReminderApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Erinnerungs-Tool")
-        self.geometry("540x800")
-        self.minsize(440, 600)
+        self.geometry("540x860")
+        self.minsize(440, 640)
         self.configure(bg=BG)
         self.resizable(True, True)
 
         self._queue = queue.Queue()
         self._listening = False
         self._dot_state = 0
-        self._selected_model = "small"
+        self._selected_whisper = "small"
+        self._selected_ollama = tk.StringVar(value="Lade...")
         self._model_cards = {}
         self._dl_stop = threading.Event()
 
@@ -66,6 +71,9 @@ class ReminderApp(tk.Tk):
         self._load_existing_reminders()
         self._refresh_model_badges()
         self._process_queue()
+
+        # Ollama-Modelle im Hintergrund laden
+        threading.Thread(target=self._load_ollama_models, daemon=True).start()
 
     # ── UI aufbauen ────────────────────────────────────────────────────────
 
@@ -89,22 +97,61 @@ class ReminderApp(tk.Tk):
 
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20)
 
-        # ── Modellauswahl ──────────────────────────────────────────────────
-        model_section = tk.Frame(self, bg=BG_CARD)
-        model_section.pack(fill="x", padx=20, pady=(12, 0))
+        # ── Whisper Modellauswahl ──────────────────────────────────────────
+        whisper_section = tk.Frame(self, bg=BG_CARD)
+        whisper_section.pack(fill="x", padx=20, pady=(12, 0))
 
-        title_row = tk.Frame(model_section, bg=BG_CARD)
+        title_row = tk.Frame(whisper_section, bg=BG_CARD)
         title_row.pack(fill="x", padx=12, pady=(10, 6))
         tk.Label(title_row, text="Whisper Modell", font=(FONT, 9, "bold"),
                  bg=BG_CARD, fg=ACCENT).pack(side="left")
         tk.Label(title_row, text="– Spracherkennung",
                  font=(FONT, 8), bg=BG_CARD, fg=TEXT_DIM).pack(side="left", padx=6)
 
-        self._model_grid = tk.Frame(model_section, bg=BG_CARD)
+        self._model_grid = tk.Frame(whisper_section, bg=BG_CARD)
         self._model_grid.pack(fill="x", padx=12, pady=(0, 10))
 
         for i, (name, info) in enumerate(WHISPER_MODELS.items()):
             self._build_model_card(name, info, row=i // 3, col=i % 3)
+
+        # ── Ollama Modellauswahl ───────────────────────────────────────────
+        tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20, pady=(8, 0))
+
+        ollama_section = tk.Frame(self, bg=BG_CARD)
+        ollama_section.pack(fill="x", padx=20, pady=(0, 0))
+
+        ollama_row = tk.Frame(ollama_section, bg=BG_CARD)
+        ollama_row.pack(fill="x", padx=12, pady=10)
+
+        tk.Label(ollama_row, text="Ollama Modell", font=(FONT, 9, "bold"),
+                 bg=BG_CARD, fg=ACCENT).pack(side="left")
+        tk.Label(ollama_row, text="– Erinnerungserkennung",
+                 font=(FONT, 8), bg=BG_CARD, fg=TEXT_DIM).pack(side="left", padx=6)
+
+        # Refresh-Button
+        self._refresh_btn = tk.Button(
+            ollama_row, text="↻", font=(FONT, 10),
+            bg=BG_ITEM, fg=TEXT_DIM, relief="flat", bd=0,
+            cursor="hand2", padx=6, pady=0,
+            command=lambda: threading.Thread(
+                target=self._load_ollama_models, daemon=True).start()
+        )
+        self._refresh_btn.pack(side="right")
+
+        # Dropdown für Ollama-Modelle
+        style = ttk.Style()
+        style.theme_use("default")
+        style.configure("dark.TCombobox",
+                         fieldbackground=BG_ITEM, background=BG_ITEM,
+                         foreground=TEXT, selectbackground=ACCENT,
+                         selectforeground="white", arrowcolor=TEXT_DIM)
+
+        self._ollama_combo = ttk.Combobox(
+            ollama_section, textvariable=self._selected_ollama,
+            style="dark.TCombobox", state="readonly",
+            font=(FONT, 9), height=8,
+        )
+        self._ollama_combo.pack(fill="x", padx=12, pady=(0, 10))
 
         # ── Download-Fortschritt ───────────────────────────────────────────
         self._dl_frame = tk.Frame(self, bg=BG_CARD)
@@ -118,24 +165,21 @@ class ReminderApp(tk.Tk):
                                         bg=BG_CARD, fg=TEXT_DIM)
         self._dl_size_label.pack(side="right")
 
-        style = ttk.Style()
-        style.theme_use("default")
         style.configure("dl.Horizontal.TProgressbar",
                          troughcolor=BG_ITEM, background=ACCENT,
                          darkcolor=ACCENT, lightcolor=ACCENT,
                          bordercolor=BG_CARD, thickness=6)
-
         self._progress = ttk.Progressbar(
             self._dl_frame, style="dl.Horizontal.TProgressbar",
             mode="determinate", maximum=100, value=0,
         )
         self._progress.pack(fill="x", padx=12, pady=(0, 10))
 
-        tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20, pady=(10, 0))
+        tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20, pady=(8, 0))
 
         # Live-Transkript
         trans_frame = tk.Frame(self, bg=BG_CARD)
-        trans_frame.pack(fill="x", padx=20, pady=(10, 0))
+        trans_frame.pack(fill="x", padx=20, pady=(8, 0))
         tk.Label(trans_frame, text="Zuhören", font=(FONT, 9, "bold"),
                  bg=BG_CARD, fg=ACCENT, pady=8, padx=12).pack(anchor="w")
         self._transcript = tk.Label(
@@ -154,7 +198,7 @@ class ReminderApp(tk.Tk):
             cursor="hand2", padx=20, pady=8,
             command=self._toggle_listening,
         )
-        self._btn.pack(pady=12)
+        self._btn.pack(pady=10)
 
         # Erinnerungen-Liste
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20)
@@ -186,10 +230,16 @@ class ReminderApp(tk.Tk):
         self._canvas.bind_all("<MouseWheel>", self._on_mousewheel)
         self._reminder_items = []
 
-    # ── Modell-Karten ─────────────────────────────────────────────────────
+    # ── Ollama Modelle laden ───────────────────────────────────────────────
+
+    def _load_ollama_models(self):
+        models = fetch_ollama_models()
+        self._queue.put(("ollama_models", models))
+
+    # ── Whisper Modell-Karten ──────────────────────────────────────────────
 
     def _build_model_card(self, name: str, info: dict, row: int, col: int):
-        selected = name == self._selected_model
+        selected = name == self._selected_whisper
         bg = ACCENT if selected else BG_ITEM
 
         card = tk.Frame(self._model_grid, bg=bg, padx=8, pady=6, cursor="hand2")
@@ -215,26 +265,22 @@ class ReminderApp(tk.Tk):
         }
 
         def on_click(_evt, n=name):
-            self._select_model(n)
+            self._select_whisper(n)
 
         for w in (card, lbl_name, lbl_size, lbl_speed, lbl_badge):
             w.bind("<Button-1>", on_click)
 
-    def _select_model(self, name: str):
-        if name == self._selected_model:
+    def _select_whisper(self, name: str):
+        if name == self._selected_whisper:
             return
-
-        # Alte Karte zurücksetzen
-        old = self._model_cards.get(self._selected_model)
+        old = self._model_cards.get(self._selected_whisper)
         if old:
             old["frame"].config(bg=BG_ITEM)
             old["name"].config(bg=BG_ITEM, fg=TEXT)
             old["size"].config(bg=BG_ITEM, fg=TEXT_DIM)
             old["speed"].config(bg=BG_ITEM, fg=TEXT_DIM)
             old["badge"].config(bg=BG_ITEM)
-
-        # Neue Karte hervorheben
-        self._selected_model = name
+        self._selected_whisper = name
         new = self._model_cards.get(name)
         if new:
             new["frame"].config(bg=ACCENT)
@@ -259,8 +305,6 @@ class ReminderApp(tk.Tk):
         self._dl_size_label.config(text=f"0 MB / {expected_mb} MB")
         self._progress.config(value=0)
         self._dl_frame.pack(fill="x", padx=20, pady=(6, 0), before=self._btn)
-
-        # Monitoring-Thread: liest Cache-Ordner-Größe alle 500ms
         self._dl_stop.clear()
         threading.Thread(
             target=self._monitor_download,
@@ -362,19 +406,19 @@ class ReminderApp(tk.Tk):
         try:
             import numpy as np
             import sounddevice as sd
-            import collections
             from faster_whisper import WhisperModel
             from config import SAMPLE_RATE, WHISPER_LANGUAGE, VAD_MODE
 
-            model_name = self._selected_model
-            cached = is_model_cached(model_name)
+            whisper_model = self._selected_whisper
+            ollama_model  = self._selected_ollama.get()
+            cached = is_model_cached(whisper_model)
 
             if not cached:
-                self._queue.put(("download_start", model_name))
+                self._queue.put(("download_start", whisper_model))
             else:
-                self._queue.put(("status", f"Lade {model_name}...", YELLOW))
+                self._queue.put(("status", f"Lade {whisper_model}...", YELLOW))
 
-            whisper = WhisperModel(model_name, device="cpu", compute_type="int8")
+            whisper = WhisperModel(whisper_model, device="cpu", compute_type="int8")
 
             if not cached:
                 self._queue.put(("download_done", None))
@@ -389,12 +433,17 @@ class ReminderApp(tk.Tk):
                 vad = None
                 use_vad = False
 
-            frame_ms = 30
+            frame_ms     = 30
             frame_samples = int(SAMPLE_RATE * frame_ms / 1000)
             silence_frames = int(1500 / frame_ms)
-            ring = collections.deque(maxlen=silence_frames)
-            voiced = []
+            ring    = collections.deque(maxlen=silence_frames)
+            voiced  = []
             triggered = False
+
+            # Kontext-Fenster: letzte N transkribierte Segmente
+            context_buf = collections.deque(maxlen=CONTEXT_WINDOW)
+            # Bereits gespeicherte Erinnerungen (verhindert Dopplungen)
+            seen_reminders: set[str] = set()
 
             def is_speech(frame_bytes):
                 if use_vad:
@@ -413,10 +462,20 @@ class ReminderApp(tk.Tk):
                     audio, language=WHISPER_LANGUAGE, beam_size=3, vad_filter=True
                 )
                 text = " ".join(s.text for s in segs).strip()
-                if text:
-                    self._queue.put(("transcript", text))
-                    result = detect_reminder(text)
-                    if result:
+                if not text:
+                    return
+
+                context_buf.append(text)
+                self._queue.put(("transcript", text))
+
+                # Analysiere immer den vollen Kontext der letzten N Segmente
+                full_context = " ".join(context_buf)
+                result = detect_reminder(full_context, model=ollama_model)
+
+                if result:
+                    task_key = result["task"].lower().strip()
+                    if task_key not in seen_reminders:
+                        seen_reminders.add(task_key)
                         reminder = add_reminder(
                             result["task"],
                             result.get("time_expression"),
@@ -475,6 +534,14 @@ class ReminderApp(tk.Tk):
                         text=f"Erinnerung erkannt: {msg[1]['task']}", fg=GREEN)
                 elif kind == "status":
                     self._set_status(msg[1], msg[2])
+                elif kind == "ollama_models":
+                    models = msg[1]
+                    if models:
+                        self._ollama_combo["values"] = models
+                        self._selected_ollama.set(models[0])
+                    else:
+                        self._ollama_combo["values"] = ["(Ollama nicht erreichbar)"]
+                        self._selected_ollama.set("(Ollama nicht erreichbar)")
                 elif kind == "download_start":
                     self._show_download(msg[1])
                     self._set_status(f"Lade {msg[1]}...", YELLOW)
