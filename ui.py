@@ -1,51 +1,65 @@
 import tkinter as tk
-import tkinter.font as tkfont
+import tkinter.ttk as ttk
 import threading
 import queue
-import time
+import os
+from pathlib import Path
 from datetime import datetime
 from storage import load_reminders, add_reminder
 from detector import detect_reminder
 
-
 # ── Farben & Stil ──────────────────────────────────────────────────────────
-BG         = "#0f0f0f"
-BG_CARD    = "#1a1a1a"
-BG_ITEM    = "#222222"
-ACCENT     = "#6c63ff"
-ACCENT2    = "#ff6584"
-TEXT       = "#f0f0f0"
-TEXT_DIM   = "#666666"
-TEXT_MID   = "#aaaaaa"
-GREEN      = "#4ade80"
-BORDER     = "#2a2a2a"
-FONT       = "Segoe UI"
+BG       = "#0f0f0f"
+BG_CARD  = "#1a1a1a"
+BG_ITEM  = "#222222"
+ACCENT   = "#6c63ff"
+ACCENT2  = "#ff6584"
+TEXT     = "#f0f0f0"
+TEXT_DIM = "#666666"
+TEXT_MID = "#aaaaaa"
+GREEN    = "#4ade80"
+YELLOW   = "#facc15"
+BORDER   = "#2a2a2a"
+FONT     = "Segoe UI"
+
+WHISPER_MODELS = {
+    "tiny":   {"size": "~75 MB",  "speed": "Sehr schnell", "quality": "Niedrig"},
+    "base":   {"size": "~145 MB", "speed": "Schnell",      "quality": "Mittel"},
+    "small":  {"size": "~465 MB", "speed": "Mittel",       "quality": "Gut"},
+    "medium": {"size": "~1.5 GB", "speed": "Langsam",      "quality": "Sehr gut"},
+    "large":  {"size": "~3 GB",   "speed": "Sehr langsam", "quality": "Beste"},
+}
+
+
+def is_model_cached(model_name: str) -> bool:
+    """Check if a faster-whisper model is already downloaded."""
+    cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+    model_dir = cache_dir / f"models--Systran--faster-whisper-{model_name}"
+    return model_dir.exists() and any(model_dir.iterdir())
 
 
 class ReminderApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Erinnerungs-Tool")
-        self.geometry("520x720")
-        self.minsize(420, 500)
+        self.geometry("540x800")
+        self.minsize(440, 600)
         self.configure(bg=BG)
         self.resizable(True, True)
 
         self._queue = queue.Queue()
         self._listening = False
-        self._listener_thread = None
         self._dot_state = 0
+        self._selected_model = tk.StringVar(value="small")
 
         self._build_ui()
         self._load_existing_reminders()
+        self._refresh_model_badges()
         self._process_queue()
 
     # ── UI aufbauen ────────────────────────────────────────────────────────
 
     def _build_ui(self):
-        bold = tkfont.Font(family=FONT, size=13, weight="bold")
-        small = tkfont.Font(family=FONT, size=9)
-
         # Header
         header = tk.Frame(self, bg=BG, pady=16)
         header.pack(fill="x", padx=20)
@@ -55,7 +69,6 @@ class ReminderApp(tk.Tk):
         tk.Label(header, text="KI", font=(FONT, 22, "bold"),
                  bg=BG, fg=ACCENT).pack(side="left")
 
-        # Status-Badge (rechts oben)
         self._status_frame = tk.Frame(header, bg=BG)
         self._status_frame.pack(side="right", pady=4)
         self._dot = tk.Label(self._status_frame, text="●", font=(FONT, 12),
@@ -65,44 +78,65 @@ class ReminderApp(tk.Tk):
                                        font=(FONT, 9), bg=BG, fg=TEXT_DIM)
         self._status_label.pack(side="left", padx=(3, 0))
 
-        # Trennlinie
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20)
 
-        # Live-Transkript Box
-        trans_frame = tk.Frame(self, bg=BG_CARD, bd=0, relief="flat")
-        trans_frame.pack(fill="x", padx=20, pady=(14, 0))
+        # ── Modellauswahl ──────────────────────────────────────────────────
+        model_section = tk.Frame(self, bg=BG_CARD)
+        model_section.pack(fill="x", padx=20, pady=(12, 0))
+
+        title_row = tk.Frame(model_section, bg=BG_CARD)
+        title_row.pack(fill="x", padx=12, pady=(10, 6))
+        tk.Label(title_row, text="Whisper Modell", font=(FONT, 9, "bold"),
+                 bg=BG_CARD, fg=ACCENT).pack(side="left")
+        tk.Label(title_row, text="Spracherkennung",
+                 font=(FONT, 8), bg=BG_CARD, fg=TEXT_DIM).pack(side="left", padx=8)
+
+        # Modell-Karten
+        self._model_badges = {}
+        grid = tk.Frame(model_section, bg=BG_CARD)
+        grid.pack(fill="x", padx=12, pady=(0, 10))
+
+        for i, (name, info) in enumerate(WHISPER_MODELS.items()):
+            col = i % 3
+            row = i // 3
+            self._build_model_card(grid, name, info, row, col)
+
+        # Download-Fortschritt (versteckt bis benötigt)
+        self._dl_frame = tk.Frame(self, bg=BG_CARD)
+        self._dl_label = tk.Label(self._dl_frame, text="",
+                                   font=(FONT, 9), bg=BG_CARD, fg=YELLOW,
+                                   padx=12, pady=4)
+        self._dl_label.pack(anchor="w")
+        self._progress = ttk.Progressbar(self._dl_frame, mode="indeterminate",
+                                          length=480)
+        self._progress.pack(fill="x", padx=12, pady=(0, 8))
+
+        tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20, pady=(10, 0))
+
+        # Live-Transkript
+        trans_frame = tk.Frame(self, bg=BG_CARD)
+        trans_frame.pack(fill="x", padx=20, pady=(10, 0))
         tk.Label(trans_frame, text="Zuhören", font=(FONT, 9, "bold"),
                  bg=BG_CARD, fg=ACCENT, pady=8, padx=12).pack(anchor="w")
         self._transcript = tk.Label(
-            trans_frame,
-            text="Drücke Start zum Zuhören...",
-            font=(FONT, 10),
-            bg=BG_CARD, fg=TEXT_DIM,
-            wraplength=440,
-            justify="left",
-            anchor="w",
-            pady=6, padx=12,
+            trans_frame, text="Drücke Start zum Zuhören...",
+            font=(FONT, 10), bg=BG_CARD, fg=TEXT_DIM,
+            wraplength=460, justify="left", anchor="w", pady=6, padx=12,
         )
         self._transcript.pack(fill="x")
         tk.Frame(trans_frame, bg=BG, height=8).pack()
 
         # Start/Stop Button
         self._btn = tk.Button(
-            self,
-            text="  Start  ",
-            font=(FONT, 11, "bold"),
-            bg=ACCENT, fg="white",
-            activebackground="#5551e0",
-            activeforeground="white",
-            relief="flat",
-            bd=0,
-            cursor="hand2",
-            padx=20, pady=8,
+            self, text="  Start  ", font=(FONT, 11, "bold"),
+            bg=ACCENT, fg="white", activebackground="#5551e0",
+            activeforeground="white", relief="flat", bd=0,
+            cursor="hand2", padx=20, pady=8,
             command=self._toggle_listening,
         )
-        self._btn.pack(pady=14)
+        self._btn.pack(pady=12)
 
-        # Trennlinie + Titel
+        # Erinnerungen-Liste
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20)
         header2 = tk.Frame(self, bg=BG, pady=10)
         header2.pack(fill="x", padx=20)
@@ -113,7 +147,6 @@ class ReminderApp(tk.Tk):
                                       fg="white", padx=7, pady=1)
         self._count_label.pack(side="left", padx=8)
 
-        # Erinnerungen-Liste (scrollbar)
         container = tk.Frame(self, bg=BG)
         container.pack(fill="both", expand=True, padx=20, pady=(0, 16))
 
@@ -131,23 +164,87 @@ class ReminderApp(tk.Tk):
         self._canvas_window = self._canvas.create_window(
             (0, 0), window=self._list_frame, anchor="nw"
         )
-
         self._list_frame.bind("<Configure>", self._on_frame_configure)
         self._canvas.bind("<Configure>", self._on_canvas_configure)
         self._canvas.bind_all("<MouseWheel>", self._on_mousewheel)
-
         self._reminder_items = []
 
-    def _on_frame_configure(self, _):
-        self._canvas.configure(scrollregion=self._canvas.bbox("all"))
+    def _build_model_card(self, parent, name, info, row, col):
+        is_selected = name == self._selected_model.get()
+        card = tk.Frame(parent, bg=ACCENT if is_selected else BG_ITEM,
+                        padx=8, pady=6, cursor="hand2")
+        card.grid(row=row, column=col, padx=3, pady=3, sticky="nsew")
+        parent.columnconfigure(col, weight=1)
 
-    def _on_canvas_configure(self, event):
-        self._canvas.itemconfig(self._canvas_window, width=event.width)
+        tk.Label(card, text=name, font=(FONT, 9, "bold"),
+                 bg=ACCENT if is_selected else BG_ITEM,
+                 fg="white" if is_selected else TEXT).pack(anchor="w")
+        tk.Label(card, text=info["size"], font=(FONT, 7),
+                 bg=ACCENT if is_selected else BG_ITEM,
+                 fg="#ccc" if is_selected else TEXT_DIM).pack(anchor="w")
+        tk.Label(card, text=info["speed"], font=(FONT, 7),
+                 bg=ACCENT if is_selected else BG_ITEM,
+                 fg="#ccc" if is_selected else TEXT_DIM).pack(anchor="w")
 
-    def _on_mousewheel(self, event):
-        self._canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        # Download-Badge (wird später gesetzt)
+        badge = tk.Label(card, text="...", font=(FONT, 7),
+                          bg=ACCENT if is_selected else BG_ITEM, fg=TEXT_DIM)
+        badge.pack(anchor="w", pady=(2, 0))
+        self._model_badges[name] = (card, badge, is_selected)
 
-    # ── Erinnerungen laden & anzeigen ─────────────────────────────────────
+        def on_click(_evt, n=name):
+            self._selected_model.set(n)
+            self._rebuild_model_cards()
+
+        for widget in [card] + card.winfo_children():
+            widget.bind("<Button-1>", on_click)
+
+    def _rebuild_model_cards(self):
+        # Alle Karten neu zeichnen (Selektion aktualisieren)
+        for widget in self._model_badges.values():
+            widget[0].destroy()
+        self._model_badges.clear()
+
+        grid = None
+        for child in self.winfo_children():
+            if isinstance(child, tk.Frame) and child.cget("bg") == BG_CARD:
+                # Suche das Grid-Frame im model_section
+                for sub in child.winfo_children():
+                    if isinstance(sub, tk.Frame) and sub.cget("bg") == BG_CARD:
+                        grid = sub
+                        break
+                if grid:
+                    break
+
+        if not grid:
+            return
+
+        for i, (name, info) in enumerate(WHISPER_MODELS.items()):
+            self._build_model_card(grid, name, info, i // 3, i % 3)
+        self._refresh_model_badges()
+
+    def _refresh_model_badges(self):
+        for name, (card, badge, _) in self._model_badges.items():
+            cached = is_model_cached(name)
+            badge.config(
+                text="✓ Bereit" if cached else "↓ Nicht geladen",
+                fg=GREEN if cached else YELLOW,
+            )
+
+    # ── Download-Fortschritt ───────────────────────────────────────────────
+
+    def _show_download(self, model_name: str):
+        self._dl_label.config(text=f"Lade Modell '{model_name}' herunter...")
+        self._dl_frame.pack(fill="x", padx=20, pady=(6, 0),
+                             before=self._btn)
+        self._progress.start(12)
+
+    def _hide_download(self):
+        self._progress.stop()
+        self._dl_frame.pack_forget()
+        self._refresh_model_badges()
+
+    # ── Erinnerungen ──────────────────────────────────────────────────────
 
     def _load_existing_reminders(self):
         for r in load_reminders():
@@ -157,11 +254,10 @@ class ReminderApp(tk.Tk):
         card = tk.Frame(self._list_frame, bg=BG_ITEM, pady=10, padx=12)
         card.pack(fill="x", pady=4)
 
-        # Obere Zeile: Aufgabe + Zeit
         top = tk.Frame(card, bg=BG_ITEM)
         top.pack(fill="x")
-
-        tk.Label(top, text="●", font=(FONT, 8), bg=BG_ITEM, fg=ACCENT).pack(side="left", padx=(0, 6))
+        tk.Label(top, text="●", font=(FONT, 8), bg=BG_ITEM, fg=ACCENT).pack(
+            side="left", padx=(0, 6))
         tk.Label(top, text=reminder["task"], font=(FONT, 10, "bold"),
                  bg=BG_ITEM, fg=TEXT, anchor="w", wraplength=340,
                  justify="left").pack(side="left", fill="x", expand=True)
@@ -171,14 +267,12 @@ class ReminderApp(tk.Tk):
                      font=(FONT, 8), bg=ACCENT2, fg="white",
                      padx=6, pady=1).pack(side="right")
 
-        # Untere Zeile: Original-Satz
         if reminder.get("original") and reminder["original"] != reminder["task"]:
             tk.Label(card, text=f'"{reminder["original"]}"',
                      font=(FONT, 8, "italic"), bg=BG_ITEM, fg=TEXT_DIM,
-                     anchor="w", wraplength=420, justify="left").pack(
+                     anchor="w", wraplength=440, justify="left").pack(
                 fill="x", pady=(4, 0))
 
-        # Zeitstempel
         try:
             dt = datetime.fromisoformat(reminder["created_at"])
             time_str = dt.strftime("%d.%m.%Y %H:%M")
@@ -189,8 +283,6 @@ class ReminderApp(tk.Tk):
 
         self._reminder_items.append(card)
         self._count_label.config(text=str(len(self._reminder_items)))
-
-        # Scroll nach unten
         self.after(100, lambda: self._canvas.yview_moveto(1.0))
 
     # ── Mikrofon Start/Stop ───────────────────────────────────────────────
@@ -204,12 +296,9 @@ class ReminderApp(tk.Tk):
     def _start_listening(self):
         self._listening = True
         self._btn.config(text="  Stop  ", bg=ACCENT2, activebackground="#e05570")
-        self._set_status("Zuhören...", GREEN)
+        self._set_status("Starte...", YELLOW)
         self._animate_dot()
-        self._listener_thread = threading.Thread(
-            target=self._listener_worker, daemon=True
-        )
-        self._listener_thread.start()
+        threading.Thread(target=self._listener_worker, daemon=True).start()
 
     def _stop_listening(self):
         self._listening = False
@@ -218,7 +307,7 @@ class ReminderApp(tk.Tk):
         self._dot.config(fg=TEXT_DIM)
         self._transcript.config(text="Drücke Start zum Zuhören...", fg=TEXT_DIM)
 
-    def _set_status(self, text: str, color: str):
+    def _set_status(self, text, color):
         self._status_label.config(text=text, fg=color)
 
     def _animate_dot(self):
@@ -229,7 +318,7 @@ class ReminderApp(tk.Tk):
         self._dot_state += 1
         self.after(600, self._animate_dot)
 
-    # ── Listener-Worker (Background-Thread) ───────────────────────────────
+    # ── Listener Worker ───────────────────────────────────────────────────
 
     def _listener_worker(self):
         try:
@@ -237,9 +326,22 @@ class ReminderApp(tk.Tk):
             import sounddevice as sd
             import collections
             from faster_whisper import WhisperModel
-            from config import SAMPLE_RATE, WHISPER_MODEL, WHISPER_LANGUAGE, VAD_MODE
+            from config import SAMPLE_RATE, WHISPER_LANGUAGE, VAD_MODE
 
-            self._queue.put(("status", "Lade Whisper...", TEXT_MID))
+            model_name = self._selected_model.get()
+            cached = is_model_cached(model_name)
+
+            if not cached:
+                self._queue.put(("download_start", model_name))
+            else:
+                self._queue.put(("status", f"Lade {model_name}...", YELLOW))
+
+            whisper = WhisperModel(model_name, device="cpu", compute_type="int8")
+
+            if not cached:
+                self._queue.put(("download_done", None))
+
+            self._queue.put(("status", "Zuhören...", GREEN))
 
             try:
                 import webrtcvad
@@ -248,9 +350,6 @@ class ReminderApp(tk.Tk):
             except ImportError:
                 vad = None
                 use_vad = False
-
-            whisper = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
-            self._queue.put(("status", "Zuhören...", GREEN))
 
             frame_ms = 30
             frame_samples = int(SAMPLE_RATE * frame_ms / 1000)
@@ -315,7 +414,7 @@ class ReminderApp(tk.Tk):
 
             with sd.InputStream(
                 samplerate=SAMPLE_RATE, channels=1, dtype="float32",
-                blocksize=frame_samples, callback=audio_cb
+                blocksize=frame_samples, callback=audio_cb,
             ):
                 while self._listening:
                     sd.sleep(100)
@@ -323,7 +422,7 @@ class ReminderApp(tk.Tk):
         except Exception as e:
             self._queue.put(("error", str(e)))
 
-    # ── Queue-Verarbeitung im Hauptthread ─────────────────────────────────
+    # ── Queue-Verarbeitung ────────────────────────────────────────────────
 
     def _process_queue(self):
         try:
@@ -334,22 +433,33 @@ class ReminderApp(tk.Tk):
                     self._transcript.config(text=msg[1], fg=TEXT_MID)
                 elif kind == "reminder":
                     self._add_reminder_card(msg[1])
-                    self._transcript.config(text=f"Erinnerung erkannt: {msg[1]['task']}", fg=GREEN)
+                    self._transcript.config(
+                        text=f"Erinnerung erkannt: {msg[1]['task']}", fg=GREEN)
                 elif kind == "status":
                     self._set_status(msg[1], msg[2])
+                elif kind == "download_start":
+                    self._show_download(msg[1])
+                    self._set_status(f"Lade {msg[1]}...", YELLOW)
+                elif kind == "download_done":
+                    self._hide_download()
                 elif kind == "error":
                     self._set_status(f"Fehler: {msg[1]}", ACCENT2)
                     self._listening = False
                     self._btn.config(text="  Start  ", bg=ACCENT)
+                    self._hide_download()
         except queue.Empty:
             pass
         self.after(100, self._process_queue)
 
+    def _on_frame_configure(self, _):
+        self._canvas.configure(scrollregion=self._canvas.bbox("all"))
 
-def main():
-    app = ReminderApp()
-    app.mainloop()
+    def _on_canvas_configure(self, event):
+        self._canvas.itemconfig(self._canvas_window, width=event.width)
+
+    def _on_mousewheel(self, event):
+        self._canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
 
 if __name__ == "__main__":
-    main()
+    ReminderApp().mainloop()
