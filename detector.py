@@ -48,21 +48,19 @@ def detect_reminder(text: str, model: str = None) -> dict | None:
 
     try:
         response = requests.post(
-            f"{OLLAMA_URL}/api/chat",
+            f"{OLLAMA_URL}/api/generate",
             json={
                 "model": used_model,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": text},
-                ],
+                "system": SYSTEM_PROMPT,
+                "prompt": text,
                 "stream": False,
-                "format": "json",          # Erzwingt JSON-Output
+                "format": "json",
                 "options": {"temperature": 0.1},
             },
             timeout=20,
         )
         response.raise_for_status()
-        raw = response.json()["message"]["content"].strip()
+        raw = response.json()["response"].strip()
 
         print(f"[ollama] {raw[:120]}")     # Debug: was kommt zurück?
 
