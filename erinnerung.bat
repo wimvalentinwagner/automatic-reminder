@@ -11,4 +11,5 @@ if not exist ".venv\Scripts\python.exe" (
     echo.
 )
 
-.venv\Scripts\python main.py %*
+:: UI starten (kein Konsolenfenster)
+start "" .venv\Scripts\pythonw.exe ui.py
