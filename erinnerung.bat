@@ -5,8 +5,8 @@ cd /d "%~dp0"
 if not exist ".venv\Scripts\python.exe" (
     echo [*] Erster Start - installiere Abhaengigkeiten, bitte warten...
     python -m venv .venv
-    .venv\Scripts\pip install --upgrade pip -q
-    .venv\Scripts\pip install -r requirements.txt -q
+    .venv\Scripts\python.exe -m pip install --upgrade pip -q
+    .venv\Scripts\python.exe -m pip install -r requirements.txt -q
     echo [OK] Bereit!
     echo.
 )
