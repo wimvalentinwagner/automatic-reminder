@@ -1,5 +1,5 @@
 OLLAMA_URL = "http://localhost:11434"
-OLLAMA_MODEL = "llama3.2"  # Change to your installed model
+OLLAMA_MODEL = "qwen2.5:14b"
 
 WHISPER_MODEL = "small"    # tiny, base, small, medium, large
 WHISPER_LANGUAGE = "de"    # German
