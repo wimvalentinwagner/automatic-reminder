@@ -46,6 +46,9 @@ def main():
     add_parser = subparsers.add_parser("add", help="Erinnerung manuell hinzufügen")
     add_parser.add_argument("text", help="Text der Erinnerung")
 
+    test_parser = subparsers.add_parser("test", help="Erinnerungserkennung direkt testen")
+    test_parser.add_argument("text", help="Text zum Testen")
+
     args = parser.parse_args()
 
     if args.command == "listen" or args.command is None:
@@ -58,6 +61,15 @@ def main():
             add_reminder(result["task"], result.get("time_expression"), args.text)
         else:
             add_reminder(args.text, None, args.text)
+    elif args.command == "test":
+        print(f"\nTest-Text: \"{args.text}\"")
+        result = detect_reminder(args.text)
+        if result:
+            print(f"[OK] Erinnerung erkannt!")
+            print(f"     Aufgabe: {result['task']}")
+            print(f"     Zeitangabe: {result.get('time_expression')}")
+        else:
+            print("[--] Keine Erinnerung erkannt.")
 
 
 if __name__ == "__main__":

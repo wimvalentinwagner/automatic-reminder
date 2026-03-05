@@ -1,42 +1,47 @@
 import requests
 import json
+import re
 from config import OLLAMA_URL, OLLAMA_MODEL
 
-SYSTEM_PROMPT = """Du bist ein hochsensitiver Erinnerungs-Extraktor. Deine einzige Aufgabe ist es, aus Gesprächsfragmenten Absichten, Pläne und Aufgaben herauszufiltern – auch wenn sie beiläufig, nebenbei oder unvollständig erwähnt werden.
+# Kurzer, klarer Prompt – keine langen Erklärungen die das Modell verwirren
+SYSTEM_PROMPT = (
+    "Du extrahierst Erinnerungen und Aufgaben aus gesprochenem Text. "
+    "Antworte NUR mit JSON.\n\n"
+    "Gibt es eine Aufgabe, einen Plan oder eine Absicht? (auch beiläufig erwähnt)\n"
+    "JA → {\"is_reminder\": true, \"task\": \"...\", \"time_expression\": \"...oder null\", \"original\": \"...\"}\n"
+    "NEIN → {\"is_reminder\": false}\n\n"
+    "Beispiele:\n"
+    "\"ich will um 6 Uhr trainieren\" → {\"is_reminder\": true, \"task\": \"Trainieren\", \"time_expression\": \"um 6 Uhr\", \"original\": \"ich will um 6 Uhr trainieren\"}\n"
+    "\"ich muss noch den Arzt anrufen\" → {\"is_reminder\": true, \"task\": \"Arzt anrufen\", \"time_expression\": null, \"original\": \"ich muss noch den Arzt anrufen\"}\n"
+    "\"wie war dein Tag?\" → {\"is_reminder\": false}"
+)
 
-ERKENNE ALLES was eine Person tun will, tun muss, tun sollte oder tun wird – egal wie es formuliert ist.
 
-Beispiele die du IMMER erkennen musst:
-- "ich will um 6 Uhr trainieren" → Erinnerung: Trainieren, Wann: um 6 Uhr
-- "morgen muss ich das noch abschicken" → Erinnerung: Abschicken, Wann: morgen
-- "ich hab's noch nicht gemacht aber ich muss den Arzt anrufen" → Erinnerung: Arzt anrufen
-- "ach so ja, Freitag ist noch das Meeting" → Erinnerung: Meeting, Wann: Freitag
-- "ich sollte eigentlich noch einkaufen gehen" → Erinnerung: Einkaufen
-- "das vergesse ich immer, ich muss Matthias noch zurückrufen" → Erinnerung: Matthias zurückrufen
-- "bis Dienstag soll der Bericht fertig sein" → Erinnerung: Bericht fertigstellen, Wann: bis Dienstag
-- "ich wollte eigentlich heute noch Sport machen" → Erinnerung: Sport, Wann: heute
-- "ach, ich muss noch tanken" → Erinnerung: Tanken
-- "nächste Woche haben wir ja noch das Essen mit den Eltern" → Erinnerung: Essen mit Eltern, Wann: nächste Woche
+def _extract_json(text: str) -> dict | None:
+    """Robust JSON extraction: handles code blocks, extra text, etc."""
+    # Markdown-Codeblöcke entfernen
+    text = re.sub(r"```(?:json)?\s*", "", text).strip()
 
-Signalwörter (nicht abschließend): muss, soll, will, wollte, sollte, würde gerne, hab noch, vergiss nicht, nicht vergessen, ist noch, haben wir noch, bin ich dran, bis [Zeit], um [Zeit], am [Tag], morgen, heute, übermorgen, nächste Woche, noch nicht gemacht, hab ich noch nicht
-
-Antworte IMMER nur mit JSON, nie mit Text davor oder danach.
-
-Wenn eine Absicht/Aufgabe/Plan erkannt wurde:
-{"is_reminder": true, "task": "Kurze präzise Aufgabenbeschreibung", "time_expression": "Zeitangabe oder null", "original": "Relevanter Originalsatz"}
-
-Wenn wirklich NICHTS erkannt wurde (reine Konversation ohne Absicht):
-{"is_reminder": false}
-
-Im Zweifel: lieber als Erinnerung markieren als sie zu verpassen."""
+    # Erstes vollständiges JSON-Objekt extrahieren
+    depth = 0
+    start = None
+    for i, ch in enumerate(text):
+        if ch == "{":
+            if start is None:
+                start = i
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0 and start is not None:
+                try:
+                    return json.loads(text[start:i + 1])
+                except json.JSONDecodeError:
+                    start = None
+    return None
 
 
 def detect_reminder(text: str, model: str = None) -> dict | None:
-    """
-    Analyze text for reminders/intentions. Accepts optional model override.
-    Returns reminder dict if found, None otherwise.
-    """
-    if not text or len(text.strip()) < 8:
+    if not text or len(text.strip()) < 5:
         return None
 
     used_model = model or OLLAMA_MODEL
@@ -51,33 +56,30 @@ def detect_reminder(text: str, model: str = None) -> dict | None:
                     {"role": "user", "content": text},
                 ],
                 "stream": False,
-                "options": {"temperature": 0.0},
+                "format": "json",          # Erzwingt JSON-Output
+                "options": {"temperature": 0.1},
             },
             timeout=20,
         )
         response.raise_for_status()
-        content = response.json()["message"]["content"].strip()
+        raw = response.json()["message"]["content"].strip()
 
-        start = content.find("{")
-        end = content.rfind("}") + 1
-        if start == -1 or end == 0:
-            return None
+        print(f"[ollama] {raw[:120]}")     # Debug: was kommt zurück?
 
-        data = json.loads(content[start:end])
-        if data.get("is_reminder"):
+        data = _extract_json(raw)
+        if data and data.get("is_reminder"):
             return data
         return None
 
     except requests.exceptions.ConnectionError:
-        print("[!] Ollama nicht erreichbar. Läuft Ollama auf localhost:11434?")
+        print("[!] Ollama nicht erreichbar – läuft Ollama auf localhost:11434?")
         return None
-    except (json.JSONDecodeError, KeyError) as e:
-        print(f"[!] Fehler beim Parsen der Ollama-Antwort: {e}")
+    except Exception as e:
+        print(f"[!] Detector-Fehler: {e}")
         return None
 
 
 def fetch_ollama_models() -> list[str]:
-    """Return list of available Ollama model names."""
     try:
         r = requests.get(f"{OLLAMA_URL}/api/tags", timeout=5)
         r.raise_for_status()
