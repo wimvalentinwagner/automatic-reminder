@@ -48,9 +48,9 @@ class TrayApp:
         self._settings = load_settings()
 
         self._icon = pystray.Icon(
-            "Erinnerungs-KI",
+            "Reminder AI",
             _make_icon(False),
-            "Erinnerungs-KI",
+            "Reminder AI",
             menu=pystray.Menu(
                 pystray.MenuItem("● Listening", lambda: None, enabled=False),
                 pystray.Menu.SEPARATOR,

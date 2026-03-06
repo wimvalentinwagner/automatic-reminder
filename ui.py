@@ -187,7 +187,7 @@ def get_cache_size_mb(model_name: str) -> float:
 class ReminderApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Erinnerungs-Tool")
+        self.title("Reminder AI")
         self.geometry("540x860")
         self.minsize(440, 640)
         self.configure(bg=BG)
@@ -218,9 +218,9 @@ class ReminderApp(tk.Tk):
         # Header
         header = tk.Frame(self, bg=BG, pady=14)
         header.pack(fill="x", padx=20)
-        tk.Label(header, text="Erinnerungs", font=(FONT, 20, "bold"),
+        tk.Label(header, text="Reminder", font=(FONT, 20, "bold"),
                  bg=BG, fg=TEXT).pack(side="left")
-        tk.Label(header, text="KI", font=(FONT, 20, "bold"),
+        tk.Label(header, text="AI", font=(FONT, 20, "bold"),
                  bg=BG, fg=ACCENT).pack(side="left")
 
         status_row = tk.Frame(header, bg=BG)
@@ -408,7 +408,7 @@ class ReminderApp(tk.Tk):
         )
         self._btn.pack(pady=10)
 
-        # Erinnerungen-Liste
+        # Reminders list
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=20)
         header2 = tk.Frame(parent, bg=BG, pady=10)
         header2.pack(fill="x", padx=20)
@@ -834,7 +834,7 @@ class ReminderApp(tk.Tk):
         self.after(400, self._dl_frame.pack_forget)
         self._refresh_model_badges()
 
-    # ── Erinnerungen ──────────────────────────────────────────────────────
+    # ── Reminders ─────────────────────────────────────────────────────────
 
     def _load_existing_reminders(self):
         for r in load_reminders():
@@ -999,7 +999,7 @@ class ReminderApp(tk.Tk):
 
             # Kontext-Fenster: letzte N transkribierte Segmente
             context_buf = collections.deque(maxlen=CONTEXT_WINDOW)
-            # Bereits gespeicherte Erinnerungen (verhindert Dopplungen)
+            # Already seen reminders (prevents duplicates)
             seen_reminders: set[str] = set()
 
             def is_speech(frame_bytes):
