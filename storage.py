@@ -18,7 +18,7 @@ def save_reminders(reminders: list):
 
 
 def add_reminder(task: str, time_expression: str | None, original: str,
-                 gcal_event_id: str | None = None) -> dict:
+                 cal_event_ids: dict | None = None) -> dict:
     reminders = load_reminders()
     reminder = {
         "id": str(uuid.uuid4())[:8],
@@ -27,7 +27,7 @@ def add_reminder(task: str, time_expression: str | None, original: str,
         "original": original,
         "created_at": datetime.now().isoformat(),
         "notified": False,
-        "gcal_event_id": gcal_event_id,
+        "cal_event_ids": cal_event_ids or {},
     }
     reminders.append(reminder)
     save_reminders(reminders)

@@ -92,6 +92,28 @@ def parse_time_expression(expr: str | None, model: str = None) -> datetime | Non
 
 # ── Kalender-Events ───────────────────────────────────────────────────────
 
+def add_event_dt(task: str, start_dt: datetime | None) -> str | None:
+    """Add event with a pre-parsed datetime (or None for all-day today)."""
+    try:
+        service = get_service()
+        if start_dt:
+            end_dt = start_dt + timedelta(hours=DEFAULT_DURATION_H)
+            body = {
+                "summary": task,
+                "start": {"dateTime": start_dt.isoformat(), "timeZone": "Europe/Berlin"},
+                "end":   {"dateTime": end_dt.isoformat(),   "timeZone": "Europe/Berlin"},
+            }
+        else:
+            today = datetime.now().strftime("%Y-%m-%d")
+            body = {"summary": task,
+                    "start": {"date": today}, "end": {"date": today}}
+        event = service.events().insert(calendarId="primary", body=body).execute()
+        return event.get("id")
+    except Exception as e:
+        print(f"[gcal] Fehler: {e}")
+        return None
+
+
 def add_event(task: str, time_expression: str | None,
               model: str = None) -> str | None:
     """

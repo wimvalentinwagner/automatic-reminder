@@ -11,6 +11,8 @@ from storage import load_reminders, add_reminder, delete_reminder, find_reminder
 from detector import detect_reminder, fetch_ollama_models, is_model_installed, pull_model
 from settings import load_settings, save_settings
 import gcal
+import caldav_cal
+import calendars as cal_providers
 
 # ── Farben & Stil ──────────────────────────────────────────────────────────
 BG       = "#0f0f0f"
@@ -83,11 +85,11 @@ class ReminderApp(tk.Tk):
 
     def _build_ui(self):
         # Header
-        header = tk.Frame(self, bg=BG, pady=16)
+        header = tk.Frame(self, bg=BG, pady=14)
         header.pack(fill="x", padx=20)
-        tk.Label(header, text="Erinnerungs", font=(FONT, 22, "bold"),
+        tk.Label(header, text="Erinnerungs", font=(FONT, 20, "bold"),
                  bg=BG, fg=TEXT).pack(side="left")
-        tk.Label(header, text="KI", font=(FONT, 22, "bold"),
+        tk.Label(header, text="KI", font=(FONT, 20, "bold"),
                  bg=BG, fg=ACCENT).pack(side="left")
 
         status_row = tk.Frame(header, bg=BG)
@@ -101,8 +103,34 @@ class ReminderApp(tk.Tk):
 
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20)
 
+        # ── Tabs ──────────────────────────────────────────────────────────
+        style = ttk.Style()
+        style.theme_use("default")
+        style.configure("Dark.TNotebook", background=BG, borderwidth=0,
+                         tabmargins=[20, 8, 0, 0])
+        style.configure("Dark.TNotebook.Tab",
+                         background=BG_ITEM, foreground=TEXT_DIM,
+                         font=(FONT, 9), padding=[14, 6],
+                         borderwidth=0, relief="flat")
+        style.map("Dark.TNotebook.Tab",
+                   background=[("selected", BG_CARD)],
+                   foreground=[("selected", TEXT)])
+
+        self._notebook = ttk.Notebook(self, style="Dark.TNotebook")
+        self._notebook.pack(fill="both", expand=True)
+
+        tab1 = tk.Frame(self._notebook, bg=BG)
+        tab2 = tk.Frame(self._notebook, bg=BG)
+        self._notebook.add(tab1, text="  Erinnerungen  ")
+        self._notebook.add(tab2, text="  Kalender  ")
+
+        self._build_tab_main(tab1)
+        self._build_tab_calendar(tab2)
+
+    def _build_tab_main(self, parent):
+        style = ttk.Style()
         # ── Whisper Modellauswahl ──────────────────────────────────────────
-        whisper_section = tk.Frame(self, bg=BG_CARD)
+        whisper_section = tk.Frame(parent, bg=BG_CARD)
         whisper_section.pack(fill="x", padx=20, pady=(12, 0))
 
         title_row = tk.Frame(whisper_section, bg=BG_CARD)
@@ -119,9 +147,9 @@ class ReminderApp(tk.Tk):
             self._build_model_card(name, info, row=i // 3, col=i % 3)
 
         # ── Ollama Modellauswahl ───────────────────────────────────────────
-        tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20, pady=(8, 0))
+        tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=20, pady=(8, 0))
 
-        ollama_section = tk.Frame(self, bg=BG_CARD)
+        ollama_section = tk.Frame(parent, bg=BG_CARD)
         ollama_section.pack(fill="x", padx=20, pady=(0, 0))
 
         ollama_row = tk.Frame(ollama_section, bg=BG_CARD)
@@ -187,7 +215,7 @@ class ReminderApp(tk.Tk):
         self._dl_btn.pack(side="right")
 
         # ── Download-Fortschritt ───────────────────────────────────────────
-        self._dl_frame = tk.Frame(self, bg=BG_CARD)
+        self._dl_frame = tk.Frame(parent, bg=BG_CARD)
 
         dl_top = tk.Frame(self._dl_frame, bg=BG_CARD)
         dl_top.pack(fill="x", padx=12, pady=(8, 4))
@@ -208,37 +236,9 @@ class ReminderApp(tk.Tk):
         )
         self._progress.pack(fill="x", padx=12, pady=(0, 10))
 
-        # ── Google Calendar ────────────────────────────────────────────────
-        tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20, pady=(8, 0))
-
-        gcal_section = tk.Frame(self, bg=BG_CARD)
-        gcal_section.pack(fill="x", padx=20)
-
-        gcal_row = tk.Frame(gcal_section, bg=BG_CARD, pady=10, padx=12)
-        gcal_row.pack(fill="x")
-
-        tk.Label(gcal_row, text="Google Kalender", font=(FONT, 9, "bold"),
-                 bg=BG_CARD, fg=ACCENT).pack(side="left")
-
-        self._gcal_status = tk.Label(gcal_row, text="", font=(FONT, 8),
-                                      bg=BG_CARD, fg=TEXT_DIM)
-        self._gcal_status.pack(side="left", padx=8)
-
-        self._gcal_btn = tk.Button(
-            gcal_row, text="", font=(FONT, 8),
-            bg=BG_ITEM, fg=TEXT, activebackground=ACCENT,
-            activeforeground="white", relief="flat", bd=0,
-            cursor="hand2", padx=10, pady=4,
-            command=self._toggle_gcal,
-        )
-        self._gcal_btn.pack(side="right")
-
-        self._update_gcal_ui()
-
-        tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20, pady=(8, 0))
-
         # Live-Transkript
-        trans_frame = tk.Frame(self, bg=BG_CARD)
+        tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=20, pady=(8, 0))
+        trans_frame = tk.Frame(parent, bg=BG_CARD)
         trans_frame.pack(fill="x", padx=20, pady=(8, 0))
         tk.Label(trans_frame, text="Zuhören", font=(FONT, 9, "bold"),
                  bg=BG_CARD, fg=ACCENT, pady=8, padx=12).pack(anchor="w")
@@ -252,7 +252,7 @@ class ReminderApp(tk.Tk):
 
         # Start/Stop Button
         self._btn = tk.Button(
-            self, text="  Start  ", font=(FONT, 11, "bold"),
+            parent, text="  Start  ", font=(FONT, 11, "bold"),
             bg=ACCENT, fg="white", activebackground="#5551e0",
             activeforeground="white", relief="flat", bd=0,
             cursor="hand2", padx=20, pady=8,
@@ -261,8 +261,8 @@ class ReminderApp(tk.Tk):
         self._btn.pack(pady=10)
 
         # Erinnerungen-Liste
-        tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20)
-        header2 = tk.Frame(self, bg=BG, pady=10)
+        tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=20)
+        header2 = tk.Frame(parent, bg=BG, pady=10)
         header2.pack(fill="x", padx=20)
         tk.Label(header2, text="Erkannte Erinnerungen",
                  font=(FONT, 11, "bold"), bg=BG, fg=TEXT).pack(side="left")
@@ -271,7 +271,7 @@ class ReminderApp(tk.Tk):
                                       fg="white", padx=7, pady=1)
         self._count_label.pack(side="left", padx=8)
 
-        container = tk.Frame(self, bg=BG)
+        container = tk.Frame(parent, bg=BG)
         container.pack(fill="both", expand=True, padx=20, pady=(0, 16))
         scrollbar = tk.Scrollbar(container, bg=BG, troughcolor=BG_CARD,
                                   relief="flat", bd=0, width=6)
@@ -290,6 +290,172 @@ class ReminderApp(tk.Tk):
         self._canvas.bind_all("<MouseWheel>", self._on_mousewheel)
         self._reminder_items = []       # list of card frames
         self._reminder_cards = {}       # {reminder_id: card}
+
+    def _build_tab_calendar(self, parent):
+        # Scrollable wrapper
+        wrap = tk.Frame(parent, bg=BG)
+        wrap.pack(fill="both", expand=True)
+        sb = tk.Scrollbar(wrap, bg=BG, troughcolor=BG_CARD, relief="flat", bd=0, width=6)
+        sb.pack(side="right", fill="y")
+        cv = tk.Canvas(wrap, bg=BG, bd=0, highlightthickness=0, yscrollcommand=sb.set)
+        cv.pack(side="left", fill="both", expand=True)
+        sb.config(command=cv.yview)
+        inner = tk.Frame(cv, bg=BG)
+        cw = cv.create_window((0, 0), window=inner, anchor="nw")
+        inner.bind("<Configure>", lambda e: cv.configure(scrollregion=cv.bbox("all")))
+        cv.bind("<Configure>", lambda e: cv.itemconfig(cw, width=e.width))
+        cv.bind_all("<MouseWheel>",
+                    lambda e: cv.yview_scroll(int(-1 * (e.delta / 120)), "units"))
+
+        tk.Label(inner, text="Kalender-Integrationen", font=(FONT, 11, "bold"),
+                 bg=BG, fg=TEXT, pady=14, padx=20, anchor="w").pack(fill="x")
+
+        self._build_cal_google(inner)
+        for pid, pinfo in caldav_cal.PROVIDERS.items():
+            self._build_cal_caldav(inner, pid, pinfo)
+
+    def _build_cal_google(self, parent):
+        card = tk.Frame(parent, bg=BG_CARD)
+        card.pack(fill="x", padx=20, pady=(0, 8))
+
+        row = tk.Frame(card, bg=BG_CARD, padx=12, pady=10)
+        row.pack(fill="x")
+
+        left = tk.Frame(row, bg=BG_CARD)
+        left.pack(side="left", fill="x", expand=True)
+        tk.Label(left, text="Google Kalender", font=(FONT, 10, "bold"),
+                 bg=BG_CARD, fg=TEXT).pack(anchor="w")
+        self._gcal_status = tk.Label(left, text="", font=(FONT, 8),
+                                     bg=BG_CARD, fg=TEXT_DIM)
+        self._gcal_status.pack(anchor="w")
+
+        self._gcal_btn = tk.Button(
+            row, text="", font=(FONT, 8),
+            bg=ACCENT, fg="white", activebackground="#5551e0",
+            activeforeground="white", relief="flat", bd=0,
+            cursor="hand2", padx=10, pady=4,
+            command=self._toggle_gcal,
+        )
+        self._gcal_btn.pack(side="right")
+        self._update_gcal_ui()
+
+    def _build_cal_caldav(self, parent, pid: str, pinfo: dict):
+        cfg = cal_providers.get_provider_config(pid)
+        is_enabled = cfg.get("enabled", False)
+
+        card = tk.Frame(parent, bg=BG_CARD)
+        card.pack(fill="x", padx=20, pady=(0, 8))
+
+        hrow = tk.Frame(card, bg=BG_CARD, padx=12, pady=10)
+        hrow.pack(fill="x")
+
+        left = tk.Frame(hrow, bg=BG_CARD)
+        left.pack(side="left", fill="x", expand=True)
+        tk.Label(left, text=pinfo["label"], font=(FONT, 10, "bold"),
+                 bg=BG_CARD, fg=TEXT).pack(anchor="w")
+        status_lbl = tk.Label(left,
+                               text="● Aktiviert" if is_enabled else "Nicht verbunden",
+                               font=(FONT, 8), bg=BG_CARD,
+                               fg=GREEN if is_enabled else TEXT_DIM)
+        status_lbl.pack(anchor="w")
+
+        # Form frame
+        form = tk.Frame(card, bg=BG_CARD, padx=12)
+
+        def _make_field(lbl_text, var, show=""):
+            row = tk.Frame(form, bg=BG_CARD)
+            row.pack(fill="x", pady=(0, 4))
+            tk.Label(row, text=lbl_text, font=(FONT, 8), bg=BG_CARD, fg=TEXT_DIM,
+                     width=12, anchor="w").pack(side="left")
+            tk.Entry(row, textvariable=var, font=(FONT, 9), bg=BG_ITEM, fg=TEXT,
+                     insertbackground=TEXT, relief="flat", highlightthickness=1,
+                     highlightcolor=ACCENT, highlightbackground=BORDER,
+                     show=show).pack(side="left", fill="x", expand=True, ipady=4)
+
+        url_var  = tk.StringVar(value=cfg.get("url", ""))
+        user_var = tk.StringVar(value=cfg.get("username", ""))
+        pw_var   = tk.StringVar(value=cfg.get("password", ""))
+
+        if pinfo.get("custom_url"):
+            _make_field("Server-URL:", url_var)
+        _make_field(pinfo.get("user_hint", "Benutzer") + ":", user_var)
+        _make_field(pinfo.get("pass_hint", "Passwort") + ":", pw_var, show="*")
+
+        if pinfo.get("help"):
+            tk.Label(form, text=pinfo["help"], font=(FONT, 7), bg=BG_CARD,
+                     fg=TEXT_DIM, wraplength=380, justify="left",
+                     anchor="w").pack(fill="x", pady=(0, 6))
+
+        btn_row = tk.Frame(form, bg=BG_CARD)
+        btn_row.pack(fill="x", pady=(0, 10))
+        save_btn = tk.Button(btn_row, text="Verbinden", font=(FONT, 8),
+                             bg=ACCENT, fg="white", activebackground="#5551e0",
+                             activeforeground="white", relief="flat", bd=0,
+                             cursor="hand2", padx=10, pady=4)
+        save_btn.pack(side="right")
+
+        def toggle_form():
+            if form.winfo_ismapped():
+                form.pack_forget()
+            else:
+                form.pack(fill="x")
+
+        edit_btn = tk.Button(hrow,
+                             text="Bearbeiten" if is_enabled else "Einrichten",
+                             font=(FONT, 8), bg=BG_ITEM, fg=TEXT,
+                             activebackground=ACCENT, activeforeground="white",
+                             relief="flat", bd=0, cursor="hand2", padx=10, pady=4,
+                             command=toggle_form)
+        edit_btn.pack(side="right")
+
+        def _disconnect():
+            cal_providers.save_provider_config(pid, False)
+            status_lbl.config(text="Nicht verbunden", fg=TEXT_DIM)
+            edit_btn.config(text="Einrichten")
+            form.pack(fill="x")
+            discon_btn.pack_forget()
+
+        discon_btn = tk.Button(hrow, text="Trennen", font=(FONT, 8),
+                               bg=BG_ITEM, fg=TEXT_DIM,
+                               activebackground=ACCENT2, activeforeground="white",
+                               relief="flat", bd=0, cursor="hand2", padx=10, pady=4,
+                               command=_disconnect)
+        if is_enabled:
+            discon_btn.pack(side="right", padx=(0, 4))
+
+        def _test_connect():
+            save_btn.config(state="disabled", text="Prüfe...")
+            url  = url_var.get() if pinfo.get("custom_url") else pinfo["url"]
+            user = user_var.get().strip()
+            pw   = pw_var.get().strip()
+            if not user or not pw or (pinfo.get("custom_url") and not url.strip()):
+                status_lbl.config(text="Bitte alle Felder ausfüllen", fg=ACCENT2)
+                save_btn.config(state="normal", text="Verbinden")
+                return
+
+            def do_test():
+                ok = caldav_cal.test_connection(pid, url, user, pw)
+                if ok:
+                    cal_providers.save_provider_config(pid, True, user, pw, url)
+                    def _on_ok():
+                        status_lbl.config(text="● Aktiviert", fg=GREEN)
+                        edit_btn.config(text="Bearbeiten")
+                        save_btn.config(state="normal", text="Speichern")
+                        form.pack_forget()
+                        discon_btn.pack(side="right", padx=(0, 4))
+                    self.after(0, _on_ok)
+                else:
+                    def _on_err():
+                        status_lbl.config(text="Verbindung fehlgeschlagen", fg=ACCENT2)
+                        save_btn.config(state="normal", text="Verbinden")
+                    self.after(0, _on_err)
+
+            threading.Thread(target=do_test, daemon=True).start()
+
+        save_btn.config(command=_test_connect)
+
+        if not is_enabled:
+            form.pack(fill="x")
 
     # ── Ollama Modelle laden & auswählen ──────────────────────────────────
 
@@ -550,13 +716,18 @@ class ReminderApp(tk.Tk):
         self.after(100, lambda: self._canvas.yview_moveto(1.0))
 
     def _remove_reminder_card(self, reminder_id: str):
-        # Google Calendar Event löschen falls vorhanden
-        if gcal.is_connected():
-            from storage import load_reminders
-            for r in load_reminders():
-                if r["id"] == reminder_id and r.get("gcal_event_id"):
-                    gcal.delete_event(r["gcal_event_id"])
-                    break
+        from storage import load_reminders
+        for r in load_reminders():
+            if r["id"] == reminder_id:
+                ids = r.get("cal_event_ids") or {}
+                # backward compat: old reminders stored gcal_event_id as string
+                if not ids and r.get("gcal_event_id"):
+                    ids = {"google": r["gcal_event_id"]}
+                if ids:
+                    threading.Thread(
+                        target=cal_providers.delete_from_all, args=(ids,), daemon=True
+                    ).start()
+                break
         delete_reminder(reminder_id)
         card = self._reminder_cards.pop(reminder_id, None)
         if card:
@@ -693,28 +864,29 @@ class ReminderApp(tk.Tk):
                         task_key = result["task"].lower().strip()
                         if task_key not in seen_reminders:
                             seen_reminders.add(task_key)
-                            # Google Calendar Event erstellen
-                            gcal_id = None
-                            if gcal.is_connected():
-                                gcal_id = gcal.add_event(
-                                    result["task"],
-                                    result.get("time_expression"),
-                                    model=ollama_model,
-                                )
+                            # Calendar events erstellen
+                            start_dt = None
+                            if result.get("time_expression"):
+                                start_dt = gcal.parse_time_expression(
+                                    result["time_expression"], model=ollama_model)
+                            cal_ids = cal_providers.add_to_all(
+                                result["task"], start_dt, model=ollama_model)
                             reminder = add_reminder(
                                 result["task"],
                                 result.get("time_expression"),
                                 result.get("original", text),
-                                gcal_event_id=gcal_id,
+                                cal_event_ids=cal_ids,
                             )
                             self._queue.put(("reminder", reminder))
                     elif action == "delete":
                         target = result.get("target", "")
                         found = find_reminder_by_keyword(target)
                         if found:
-                            # Google Calendar Event löschen
-                            if gcal.is_connected() and found.get("gcal_event_id"):
-                                gcal.delete_event(found["gcal_event_id"])
+                            ids = found.get("cal_event_ids") or {}
+                            if not ids and found.get("gcal_event_id"):
+                                ids = {"google": found["gcal_event_id"]}
+                            if ids:
+                                cal_providers.delete_from_all(ids)
                             self._queue.put(("delete_reminder", found["id"], found["task"]))
 
             def audio_cb(indata, frames, time_info, status):
