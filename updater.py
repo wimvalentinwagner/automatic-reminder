@@ -80,22 +80,20 @@ def install_packages(packages: list[str], log_cb):
 # ── Update-UI ─────────────────────────────────────────────────────────────
 
 class UpdaterWindow(tk.Tk):
-    def __init__(self):
+    def __init__(self, commits: list[str], missing: list[str]):
         super().__init__()
         self.title("Erinnerungs-KI – Update")
         self.geometry("480x460")
         self.resizable(False, False)
         self.configure(bg=BG)
-        # Fenster mittig auf dem Bildschirm
         self.eval("tk::PlaceWindow . center")
 
         self._q: queue.Queue = queue.Queue()
-        self._commits: list[str] = []
-        self._missing: list[str] = []
-        self._checked = False
+        self._commits = commits
+        self._missing = missing
 
         self._build()
-        self.after(100, self._start_checks)
+        self.after(100, self._show_results)
         self.after(100, self._poll)
 
     # ── UI aufbauen ───────────────────────────────────────────────────────
@@ -112,13 +110,6 @@ class UpdaterWindow(tk.Tk):
                  bg=BG, fg=TEXT_DIM).pack(side="left", padx=10, pady=4)
 
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20)
-
-        # Status-Bereich
-        status_frame = tk.Frame(self, bg=BG_CARD)
-        status_frame.pack(fill="x", padx=20, pady=(12, 0))
-
-        self._git_row  = self._status_row(status_frame, "Git-Updates")
-        self._dep_row  = self._status_row(status_frame, "Abhängigkeiten")
 
         # Liste (Commits / Pakete)
         list_frame = tk.Frame(self, bg=BG_CARD)
@@ -168,34 +159,6 @@ class UpdaterWindow(tk.Tk):
         )
         self._update_btn.pack(side="right")
 
-    def _status_row(self, parent, label: str) -> dict:
-        row = tk.Frame(parent, bg=BG_CARD, pady=6, padx=12)
-        row.pack(fill="x")
-        tk.Label(row, text=label, font=(FONT, 9), bg=BG_CARD,
-                 fg=TEXT).pack(side="left")
-        dot = tk.Label(row, text="●  Prüfe...", font=(FONT, 9),
-                        bg=BG_CARD, fg=TEXT_DIM)
-        dot.pack(side="right")
-        return {"dot": dot}
-
-    # ── Checks starten ────────────────────────────────────────────────────
-
-    def _start_checks(self):
-        threading.Thread(target=self._run_checks, daemon=True).start()
-
-    def _run_checks(self):
-        self._q.put(("git_checking",))
-        commits = check_git_updates()
-        self._commits = commits
-        self._q.put(("git_done", commits))
-
-        self._q.put(("dep_checking",))
-        missing = check_dependencies()
-        self._missing = missing
-        self._q.put(("dep_done", missing))
-
-        self._q.put(("checks_done",))
-
     # ── Queue pollen ──────────────────────────────────────────────────────
 
     def _poll(self):
@@ -203,36 +166,8 @@ class UpdaterWindow(tk.Tk):
             while True:
                 msg = self._q.get_nowait()
                 kind = msg[0]
-
-                if kind == "git_checking":
-                    self._git_row["dot"].config(text="● Prüfe...", fg=YELLOW)
-
-                elif kind == "git_done":
-                    commits = msg[1]
-                    if commits:
-                        self._git_row["dot"].config(
-                            text=f"● {len(commits)} Update(s)", fg=YELLOW)
-                    else:
-                        self._git_row["dot"].config(text="● Aktuell", fg=GREEN)
-
-                elif kind == "dep_checking":
-                    self._dep_row["dot"].config(text="● Prüfe...", fg=YELLOW)
-
-                elif kind == "dep_done":
-                    missing = msg[1]
-                    if missing:
-                        self._dep_row["dot"].config(
-                            text=f"● {len(missing)} fehlend", fg=ACCENT2)
-                    else:
-                        self._dep_row["dot"].config(text="● Vollständig", fg=GREEN)
-
-                elif kind == "checks_done":
-                    self._checked = True
-                    self._show_results()
-
-                elif kind == "log":
+                if kind == "log":
                     self._log_label.config(text=msg[1])
-
                 elif kind == "done":
                     self._progress.stop()
                     self._progress.pack_forget()
@@ -241,7 +176,6 @@ class UpdaterWindow(tk.Tk):
                                              fg=BG, state="normal",
                                              command=self.destroy)
                     self._skip_btn.config(state="disabled")
-
         except queue.Empty:
             pass
         self.after(100, self._poll)
@@ -307,7 +241,14 @@ class UpdaterWindow(tk.Tk):
 # ── Einstieg ──────────────────────────────────────────────────────────────
 
 def main():
-    app = UpdaterWindow()
+    # Erst still prüfen — UI nur zeigen wenn nötig
+    commits = check_git_updates()
+    missing = check_dependencies()
+
+    if not commits and not missing:
+        return  # Alles aktuell, direkt starten
+
+    app = UpdaterWindow(commits=commits, missing=missing)
     app.mainloop()
 
 
