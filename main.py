@@ -6,7 +6,7 @@ und speichert sie automatisch.
 """
 import sys
 import argparse
-from detector import detect_reminder
+from detector import detect_reminder, is_model_installed, pull_model
 from storage import add_reminder, list_reminders
 from notifier import notify
 
@@ -62,6 +62,14 @@ def main():
         else:
             add_reminder(args.text, None, args.text)
     elif args.command == "test":
+        from config import OLLAMA_MODEL
+        if not is_model_installed(OLLAMA_MODEL):
+            print(f"[*] Modell '{OLLAMA_MODEL}' nicht installiert – lade herunter...")
+            def show(status, pct, done, total):
+                bar = ("█" * (pct // 5)).ljust(20)
+                print(f"\r  [{bar}] {pct}% – {status}", end="", flush=True)
+            pull_model(OLLAMA_MODEL, progress_callback=show)
+            print("\n[OK] Fertig!")
         print(f"\nTest-Text: \"{args.text}\"")
         result = detect_reminder(args.text)
         if result:

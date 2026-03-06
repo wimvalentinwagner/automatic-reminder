@@ -7,7 +7,7 @@ import collections
 from pathlib import Path
 from datetime import datetime
 from storage import load_reminders, add_reminder
-from detector import detect_reminder, fetch_ollama_models
+from detector import detect_reminder, fetch_ollama_models, is_model_installed, pull_model
 
 # ── Farben & Stil ──────────────────────────────────────────────────────────
 BG       = "#0f0f0f"
@@ -411,8 +411,27 @@ class ReminderApp(tk.Tk):
 
             whisper_model = self._selected_whisper
             ollama_model  = self._selected_ollama.get()
-            cached = is_model_cached(whisper_model)
 
+            # ── Ollama-Modell prüfen & ggf. herunterladen ─────────────────
+            if not is_model_installed(ollama_model):
+                self._queue.put(("ollama_pull_start", ollama_model))
+
+                def on_pull_progress(status, pct, completed, total):
+                    mb_done  = completed / (1024 * 1024)
+                    mb_total = total    / (1024 * 1024)
+                    label = status if pct == 0 else f"{mb_done:.0f} MB / {mb_total:.0f} MB"
+                    self._queue.put(("ollama_pull_progress", pct, label))
+
+                try:
+                    pull_model(ollama_model, progress_callback=on_pull_progress)
+                except Exception as e:
+                    self._queue.put(("error", f"Ollama Pull fehlgeschlagen: {e}"))
+                    return
+
+                self._queue.put(("ollama_pull_done", ollama_model))
+
+            # ── Whisper-Modell laden ───────────────────────────────────────
+            cached = is_model_cached(whisper_model)
             if not cached:
                 self._queue.put(("download_start", whisper_model))
             else:
@@ -542,6 +561,18 @@ class ReminderApp(tk.Tk):
                     else:
                         self._ollama_combo["values"] = ["(Ollama nicht erreichbar)"]
                         self._selected_ollama.set("(Ollama nicht erreichbar)")
+                elif kind == "ollama_pull_start":
+                    self._dl_label.config(text=f"Lade Ollama-Modell '{msg[1]}'...")
+                    self._dl_size_label.config(text="")
+                    self._progress.config(value=0)
+                    self._dl_frame.pack(fill="x", padx=20, pady=(6, 0), before=self._btn)
+                    self._set_status(f"Lade {msg[1]}...", YELLOW)
+                elif kind == "ollama_pull_progress":
+                    self._progress.config(value=msg[1])
+                    self._dl_size_label.config(text=msg[2])
+                elif kind == "ollama_pull_done":
+                    self._dl_frame.pack_forget()
+                    self._set_status(f"{msg[1]} bereit", GREEN)
                 elif kind == "download_start":
                     self._show_download(msg[1])
                     self._set_status(f"Lade {msg[1]}...", YELLOW)
