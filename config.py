@@ -1,5 +1,5 @@
 OLLAMA_URL = "http://localhost:11434"
-OLLAMA_MODEL = "qwen3:4b"
+OLLAMA_MODEL = "gemma3:4b"
 
 WHISPER_MODEL = "small"    # tiny, base, small, medium, large
 WHISPER_LANGUAGE = "de"    # German
