@@ -5,3 +5,5 @@ scipy
 requests
 schedule
 webrtcvad-wheels
+pystray
+Pillow
