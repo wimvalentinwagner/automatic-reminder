@@ -8,6 +8,7 @@ from pathlib import Path
 from datetime import datetime
 from storage import load_reminders, add_reminder, delete_reminder, find_reminder_by_keyword
 from detector import detect_reminder, fetch_ollama_models, is_model_installed, pull_model
+from settings import load_settings, save_settings
 
 # ── Farben & Stil ──────────────────────────────────────────────────────────
 BG       = "#0f0f0f"
@@ -62,8 +63,9 @@ class ReminderApp(tk.Tk):
         self._queue = queue.Queue()
         self._listening = False
         self._dot_state = 0
-        self._selected_whisper = "small"
-        self._selected_ollama = tk.StringVar(value="Lade...")
+        self._settings = load_settings()
+        self._selected_whisper = self._settings.get("whisper_model", "small")
+        self._selected_ollama = tk.StringVar(value=self._settings.get("ollama_model", "Lade..."))
         self._model_cards = {}
         self._dl_stop = threading.Event()
 
@@ -242,6 +244,8 @@ class ReminderApp(tk.Tk):
         model = self._selected_ollama.get()
         if not model or model.startswith("("):
             return
+        self._settings["ollama_model"] = model
+        save_settings(self._settings)
         if not is_model_installed(model):
             threading.Thread(
                 target=self._pull_ollama_model, args=(model,), daemon=True
@@ -317,6 +321,8 @@ class ReminderApp(tk.Tk):
             new["size"].config(bg=ACCENT, fg="#ccc")
             new["speed"].config(bg=ACCENT, fg="#ccc")
             new["badge"].config(bg=ACCENT)
+        self._settings["whisper_model"] = name
+        save_settings(self._settings)
 
     def _refresh_model_badges(self):
         for name, card in self._model_cards.items():
@@ -614,7 +620,8 @@ class ReminderApp(tk.Tk):
                     models = msg[1]
                     if models:
                         self._ollama_combo["values"] = models
-                        self._selected_ollama.set(models[0])
+                        saved = self._settings.get("ollama_model", "")
+                        self._selected_ollama.set(saved if saved in models else models[0])
                     else:
                         self._ollama_combo["values"] = ["(Ollama nicht erreichbar)"]
                         self._selected_ollama.set("(Ollama nicht erreichbar)")
