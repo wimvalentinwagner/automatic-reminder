@@ -153,8 +153,36 @@ class ReminderApp(tk.Tk):
             style="dark.TCombobox", state="readonly",
             font=(FONT, 9), height=8,
         )
-        self._ollama_combo.pack(fill="x", padx=12, pady=(0, 10))
+        self._ollama_combo.pack(fill="x", padx=12, pady=(0, 6))
         self._ollama_combo.bind("<<ComboboxSelected>>", self._on_ollama_model_selected)
+
+        # Neues Modell herunterladen
+        add_row = tk.Frame(ollama_section, bg=BG_CARD)
+        add_row.pack(fill="x", padx=12, pady=(0, 10))
+
+        self._new_model_var = tk.StringVar()
+        self._new_model_entry = tk.Entry(
+            add_row, textvariable=self._new_model_var,
+            font=(FONT, 9), bg=BG_ITEM, fg=TEXT,
+            insertbackground=TEXT, relief="flat",
+            highlightthickness=1, highlightcolor=ACCENT,
+            highlightbackground=BORDER,
+        )
+        self._new_model_entry.insert(0, "z.B. llama3.2:3b")
+        self._new_model_entry.config(fg=TEXT_DIM)
+        self._new_model_entry.bind("<FocusIn>",  self._entry_focus_in)
+        self._new_model_entry.bind("<FocusOut>", self._entry_focus_out)
+        self._new_model_entry.bind("<Return>",   lambda _: self._download_new_model())
+        self._new_model_entry.pack(side="left", fill="x", expand=True, ipady=5, padx=(0, 6))
+
+        self._dl_btn = tk.Button(
+            add_row, text="↓ Laden", font=(FONT, 9),
+            bg=ACCENT, fg="white", activebackground="#5551e0",
+            activeforeground="white", relief="flat", bd=0,
+            cursor="hand2", padx=10, pady=5,
+            command=self._download_new_model,
+        )
+        self._dl_btn.pack(side="right")
 
         # ── Download-Fortschritt ───────────────────────────────────────────
         self._dl_frame = tk.Frame(self, bg=BG_CARD)
@@ -240,6 +268,30 @@ class ReminderApp(tk.Tk):
         models = fetch_ollama_models()
         self._queue.put(("ollama_models", models))
 
+    def _entry_focus_in(self, _evt):
+        if self._new_model_var.get() == "z.B. llama3.2:3b":
+            self._new_model_entry.delete(0, "end")
+            self._new_model_entry.config(fg=TEXT)
+
+    def _entry_focus_out(self, _evt):
+        if not self._new_model_var.get().strip():
+            self._new_model_entry.insert(0, "z.B. llama3.2:3b")
+            self._new_model_entry.config(fg=TEXT_DIM)
+
+    def _download_new_model(self):
+        model = self._new_model_var.get().strip()
+        if not model or model == "z.B. llama3.2:3b":
+            return
+        self._new_model_entry.delete(0, "end")
+        self._new_model_entry.config(fg=TEXT_DIM)
+        self._new_model_entry.insert(0, "z.B. llama3.2:3b")
+        self._dl_btn.config(state="disabled", text="Lädt...")
+        threading.Thread(
+            target=self._pull_ollama_model,
+            args=(model,),
+            daemon=True,
+        ).start()
+
     def _on_ollama_model_selected(self, _evt=None):
         model = self._selected_ollama.get()
         if not model or model.startswith("("):
@@ -263,11 +315,12 @@ class ReminderApp(tk.Tk):
         try:
             pull_model(model, progress_callback=on_progress)
             self._queue.put(("ollama_pull_done", model))
-            # Modellliste neu laden
             threading.Thread(target=self._load_ollama_models, daemon=True).start()
         except Exception as e:
             self._queue.put(("error", f"Pull fehlgeschlagen: {e}"))
             self._queue.put(("ollama_pull_done", model))
+        finally:
+            self._queue.put(("dl_btn_reset",))
 
     # ── Whisper Modell-Karten ──────────────────────────────────────────────
 
@@ -637,6 +690,8 @@ class ReminderApp(tk.Tk):
                 elif kind == "ollama_pull_done":
                     self._dl_frame.pack_forget()
                     self._set_status(f"{msg[1]} bereit", GREEN)
+                elif kind == "dl_btn_reset":
+                    self._dl_btn.config(state="normal", text="↓ Laden")
                 elif kind == "download_start":
                     self._show_download(msg[1])
                     self._set_status(f"Lade {msg[1]}...", YELLOW)
