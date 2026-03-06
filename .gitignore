@@ -3,4 +3,6 @@ __pycache__/
 *.pyc
 reminders.json
 settings.json
+credentials.json
+token.json
 *.log

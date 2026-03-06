@@ -1,4 +1,5 @@
 import tkinter as tk
+import os
 import tkinter.ttk as ttk
 import threading
 import queue
@@ -9,6 +10,7 @@ from datetime import datetime
 from storage import load_reminders, add_reminder, delete_reminder, find_reminder_by_keyword
 from detector import detect_reminder, fetch_ollama_models, is_model_installed, pull_model
 from settings import load_settings, save_settings
+import gcal
 
 # ── Farben & Stil ──────────────────────────────────────────────────────────
 BG       = "#0f0f0f"
@@ -206,6 +208,33 @@ class ReminderApp(tk.Tk):
         )
         self._progress.pack(fill="x", padx=12, pady=(0, 10))
 
+        # ── Google Calendar ────────────────────────────────────────────────
+        tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20, pady=(8, 0))
+
+        gcal_section = tk.Frame(self, bg=BG_CARD)
+        gcal_section.pack(fill="x", padx=20)
+
+        gcal_row = tk.Frame(gcal_section, bg=BG_CARD, pady=10, padx=12)
+        gcal_row.pack(fill="x")
+
+        tk.Label(gcal_row, text="Google Kalender", font=(FONT, 9, "bold"),
+                 bg=BG_CARD, fg=ACCENT).pack(side="left")
+
+        self._gcal_status = tk.Label(gcal_row, text="", font=(FONT, 8),
+                                      bg=BG_CARD, fg=TEXT_DIM)
+        self._gcal_status.pack(side="left", padx=8)
+
+        self._gcal_btn = tk.Button(
+            gcal_row, text="", font=(FONT, 8),
+            bg=BG_ITEM, fg=TEXT, activebackground=ACCENT,
+            activeforeground="white", relief="flat", bd=0,
+            cursor="hand2", padx=10, pady=4,
+            command=self._toggle_gcal,
+        )
+        self._gcal_btn.pack(side="right")
+
+        self._update_gcal_ui()
+
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20, pady=(8, 0))
 
         # Live-Transkript
@@ -321,6 +350,61 @@ class ReminderApp(tk.Tk):
             self._queue.put(("ollama_pull_done", model))
         finally:
             self._queue.put(("dl_btn_reset",))
+
+    # ── Google Calendar ───────────────────────────────────────────────────
+
+    def _update_gcal_ui(self):
+        if not gcal.is_configured():
+            self._gcal_status.config(text="credentials.json fehlt", fg=ACCENT2)
+            self._gcal_btn.config(text="Anleitung", command=self._show_gcal_help)
+        elif gcal.is_connected():
+            self._gcal_status.config(text="● Verbunden", fg=GREEN)
+            self._gcal_btn.config(text="Trennen", command=self._toggle_gcal)
+        else:
+            self._gcal_status.config(text="Nicht verbunden", fg=TEXT_DIM)
+            self._gcal_btn.config(text="Verbinden", command=self._toggle_gcal)
+
+    def _toggle_gcal(self):
+        if gcal.is_connected():
+            gcal.disconnect()
+            self._update_gcal_ui()
+        else:
+            threading.Thread(target=self._gcal_connect, daemon=True).start()
+
+    def _gcal_connect(self):
+        try:
+            gcal.get_service()
+            self._queue.put(("gcal_connected",))
+        except Exception as e:
+            self._queue.put(("gcal_error", str(e)))
+
+    def _show_gcal_help(self):
+        win = tk.Toplevel(self)
+        win.title("Google Kalender einrichten")
+        win.configure(bg=BG)
+        win.geometry("480x320")
+        win.resizable(False, False)
+        steps = [
+            "1. Öffne console.cloud.google.com",
+            "2. Neues Projekt erstellen",
+            "3. APIs & Dienste → Bibliothek",
+            "4. 'Google Calendar API' aktivieren",
+            "5. APIs & Dienste → Anmeldedaten",
+            "6. OAuth 2.0-Client-ID erstellen (Desktop-App)",
+            "7. JSON herunterladen als 'credentials.json'",
+            "8. credentials.json in diesen Ordner legen:",
+            f"   {os.path.dirname(os.path.abspath(__file__))}",
+            "9. Neu starten und 'Verbinden' klicken",
+        ]
+        tk.Label(win, text="Google Kalender einrichten", font=(FONT, 12, "bold"),
+                 bg=BG, fg=TEXT, pady=14).pack()
+        for step in steps:
+            tk.Label(win, text=step, font=(FONT, 9), bg=BG,
+                     fg=TEXT if not step.startswith("  ") else YELLOW,
+                     anchor="w").pack(fill="x", padx=20, pady=1)
+        tk.Button(win, text="Schließen", font=(FONT, 9), bg=ACCENT, fg="white",
+                  relief="flat", bd=0, padx=16, pady=6,
+                  command=win.destroy).pack(pady=12)
 
     # ── Whisper Modell-Karten ──────────────────────────────────────────────
 
@@ -466,6 +550,13 @@ class ReminderApp(tk.Tk):
         self.after(100, lambda: self._canvas.yview_moveto(1.0))
 
     def _remove_reminder_card(self, reminder_id: str):
+        # Google Calendar Event löschen falls vorhanden
+        if gcal.is_connected():
+            from storage import load_reminders
+            for r in load_reminders():
+                if r["id"] == reminder_id and r.get("gcal_event_id"):
+                    gcal.delete_event(r["gcal_event_id"])
+                    break
         delete_reminder(reminder_id)
         card = self._reminder_cards.pop(reminder_id, None)
         if card:
@@ -602,16 +693,28 @@ class ReminderApp(tk.Tk):
                         task_key = result["task"].lower().strip()
                         if task_key not in seen_reminders:
                             seen_reminders.add(task_key)
+                            # Google Calendar Event erstellen
+                            gcal_id = None
+                            if gcal.is_connected():
+                                gcal_id = gcal.add_event(
+                                    result["task"],
+                                    result.get("time_expression"),
+                                    model=ollama_model,
+                                )
                             reminder = add_reminder(
                                 result["task"],
                                 result.get("time_expression"),
                                 result.get("original", text),
+                                gcal_event_id=gcal_id,
                             )
                             self._queue.put(("reminder", reminder))
                     elif action == "delete":
                         target = result.get("target", "")
                         found = find_reminder_by_keyword(target)
                         if found:
+                            # Google Calendar Event löschen
+                            if gcal.is_connected() and found.get("gcal_event_id"):
+                                gcal.delete_event(found["gcal_event_id"])
                             self._queue.put(("delete_reminder", found["id"], found["task"]))
 
             def audio_cb(indata, frames, time_info, status):
@@ -692,6 +795,11 @@ class ReminderApp(tk.Tk):
                     self._set_status(f"{msg[1]} bereit", GREEN)
                 elif kind == "dl_btn_reset":
                     self._dl_btn.config(state="normal", text="↓ Laden")
+                elif kind == "gcal_connected":
+                    self._update_gcal_ui()
+                elif kind == "gcal_error":
+                    self._gcal_status.config(text=f"Fehler: {msg[1]}", fg=ACCENT2)
+                    self._gcal_btn.config(text="Verbinden")
                 elif kind == "download_start":
                     self._show_download(msg[1])
                     self._set_status(f"Lade {msg[1]}...", YELLOW)
