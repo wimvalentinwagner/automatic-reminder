@@ -36,6 +36,25 @@ def add_reminder(task: str, time_expression: str | None, original: str) -> dict:
     return reminder
 
 
+def delete_reminder(reminder_id: str) -> bool:
+    reminders = load_reminders()
+    new = [r for r in reminders if r["id"] != reminder_id]
+    if len(new) == len(reminders):
+        return False
+    save_reminders(new)
+    return True
+
+
+def find_reminder_by_keyword(keyword: str) -> dict | None:
+    """Find the best matching reminder by keyword (case-insensitive)."""
+    keyword = keyword.lower()
+    reminders = load_reminders()
+    for r in reminders:
+        if keyword in r["task"].lower() or keyword in r.get("original", "").lower():
+            return r
+    return None
+
+
 def list_reminders():
     reminders = load_reminders()
     if not reminders:

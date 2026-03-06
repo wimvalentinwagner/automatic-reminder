@@ -5,15 +5,21 @@ from config import OLLAMA_URL, OLLAMA_MODEL
 
 # Kurzer, klarer Prompt – keine langen Erklärungen die das Modell verwirren
 SYSTEM_PROMPT = (
-    "Du extrahierst Erinnerungen und Aufgaben aus gesprochenem Text. "
+    "Du analysierst gesprochenen Text und erkennst zwei Dinge: neue Erinnerungen/Aufgaben UND das Löschen von Erinnerungen. "
     "Antworte NUR mit JSON.\n\n"
-    "Gibt es eine Aufgabe, einen Plan oder eine Absicht? (auch beiläufig erwähnt)\n"
-    "JA → {\"is_reminder\": true, \"task\": \"...\", \"time_expression\": \"...oder null\", \"original\": \"...\"}\n"
-    "NEIN → {\"is_reminder\": false}\n\n"
+    "NEUE AUFGABE erkannt (auch beiläufig):\n"
+    "{\"action\": \"add\", \"task\": \"...\", \"time_expression\": \"... oder null\", \"original\": \"...\"}\n\n"
+    "LÖSCHEN einer Erinnerung erkannt:\n"
+    "{\"action\": \"delete\", \"target\": \"Stichwort der zu löschenden Erinnerung\"}\n\n"
+    "NICHTS erkannt:\n"
+    "{\"action\": \"none\"}\n\n"
     "Beispiele:\n"
-    "\"ich will um 6 Uhr trainieren\" → {\"is_reminder\": true, \"task\": \"Trainieren\", \"time_expression\": \"um 6 Uhr\", \"original\": \"ich will um 6 Uhr trainieren\"}\n"
-    "\"ich muss noch den Arzt anrufen\" → {\"is_reminder\": true, \"task\": \"Arzt anrufen\", \"time_expression\": null, \"original\": \"ich muss noch den Arzt anrufen\"}\n"
-    "\"wie war dein Tag?\" → {\"is_reminder\": false}"
+    "\"ich will um 6 Uhr trainieren\" → {\"action\": \"add\", \"task\": \"Trainieren\", \"time_expression\": \"um 6 Uhr\", \"original\": \"ich will um 6 Uhr trainieren\"}\n"
+    "\"ich muss noch den Arzt anrufen\" → {\"action\": \"add\", \"task\": \"Arzt anrufen\", \"time_expression\": null, \"original\": \"ich muss noch den Arzt anrufen\"}\n"
+    "\"vergiss die Erinnerung mit dem Training\" → {\"action\": \"delete\", \"target\": \"Training\"}\n"
+    "\"das mit dem Arzt erledigt sich, lösch das\" → {\"action\": \"delete\", \"target\": \"Arzt\"}\n"
+    "\"ich brauch die Einkaufen-Erinnerung nicht mehr\" → {\"action\": \"delete\", \"target\": \"Einkaufen\"}\n"
+    "\"wie war dein Tag?\" → {\"action\": \"none\"}"
 )
 
 
@@ -65,7 +71,7 @@ def detect_reminder(text: str, model: str = None) -> dict | None:
         print(f"[ollama] {raw[:120]}")     # Debug: was kommt zurück?
 
         data = _extract_json(raw)
-        if data and data.get("is_reminder"):
+        if data and data.get("action") in ("add", "delete"):
             return data
         return None
 

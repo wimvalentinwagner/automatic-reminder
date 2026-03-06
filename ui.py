@@ -6,7 +6,7 @@ import time
 import collections
 from pathlib import Path
 from datetime import datetime
-from storage import load_reminders, add_reminder
+from storage import load_reminders, add_reminder, delete_reminder, find_reminder_by_keyword
 from detector import detect_reminder, fetch_ollama_models, is_model_installed, pull_model
 
 # ── Farben & Stil ──────────────────────────────────────────────────────────
@@ -229,7 +229,8 @@ class ReminderApp(tk.Tk):
         self._list_frame.bind("<Configure>", self._on_frame_configure)
         self._canvas.bind("<Configure>", self._on_canvas_configure)
         self._canvas.bind_all("<MouseWheel>", self._on_mousewheel)
-        self._reminder_items = []
+        self._reminder_items = []       # list of card frames
+        self._reminder_cards = {}       # {reminder_id: card}
 
     # ── Ollama Modelle laden & auswählen ──────────────────────────────────
 
@@ -369,8 +370,17 @@ class ReminderApp(tk.Tk):
         tk.Label(top, text="●", font=(FONT, 8), bg=BG_ITEM, fg=ACCENT).pack(
             side="left", padx=(0, 6))
         tk.Label(top, text=reminder["task"], font=(FONT, 10, "bold"),
-                 bg=BG_ITEM, fg=TEXT, anchor="w", wraplength=340,
+                 bg=BG_ITEM, fg=TEXT, anchor="w", wraplength=300,
                  justify="left").pack(side="left", fill="x", expand=True)
+
+        # Lösch-Button
+        def on_delete(rid=reminder["id"], c=card):
+            self._remove_reminder_card(rid)
+
+        tk.Button(top, text="✕", font=(FONT, 8), bg=BG_ITEM, fg=TEXT_DIM,
+                  activebackground=ACCENT2, activeforeground="white",
+                  relief="flat", bd=0, cursor="hand2", padx=4,
+                  command=on_delete).pack(side="right", padx=(4, 0))
 
         if reminder.get("time_expression"):
             tk.Label(top, text=reminder["time_expression"],
@@ -392,8 +402,18 @@ class ReminderApp(tk.Tk):
                  fg=TEXT_DIM, anchor="e").pack(fill="x", pady=(2, 0))
 
         self._reminder_items.append(card)
+        self._reminder_cards[reminder["id"]] = card
         self._count_label.config(text=str(len(self._reminder_items)))
         self.after(100, lambda: self._canvas.yview_moveto(1.0))
+
+    def _remove_reminder_card(self, reminder_id: str):
+        delete_reminder(reminder_id)
+        card = self._reminder_cards.pop(reminder_id, None)
+        if card:
+            if card in self._reminder_items:
+                self._reminder_items.remove(card)
+            card.destroy()
+            self._count_label.config(text=str(len(self._reminder_items)))
 
     # ── Mikrofon Start/Stop ───────────────────────────────────────────────
 
@@ -518,15 +538,22 @@ class ReminderApp(tk.Tk):
                 result = detect_reminder(full_context, model=ollama_model)
 
                 if result:
-                    task_key = result["task"].lower().strip()
-                    if task_key not in seen_reminders:
-                        seen_reminders.add(task_key)
-                        reminder = add_reminder(
-                            result["task"],
-                            result.get("time_expression"),
-                            result.get("original", text),
-                        )
-                        self._queue.put(("reminder", reminder))
+                    action = result.get("action")
+                    if action == "add":
+                        task_key = result["task"].lower().strip()
+                        if task_key not in seen_reminders:
+                            seen_reminders.add(task_key)
+                            reminder = add_reminder(
+                                result["task"],
+                                result.get("time_expression"),
+                                result.get("original", text),
+                            )
+                            self._queue.put(("reminder", reminder))
+                    elif action == "delete":
+                        target = result.get("target", "")
+                        found = find_reminder_by_keyword(target)
+                        if found:
+                            self._queue.put(("delete_reminder", found["id"], found["task"]))
 
             def audio_cb(indata, frames, time_info, status):
                 nonlocal triggered, voiced
@@ -577,6 +604,10 @@ class ReminderApp(tk.Tk):
                     self._add_reminder_card(msg[1])
                     self._transcript.config(
                         text=f"Erinnerung erkannt: {msg[1]['task']}", fg=GREEN)
+                elif kind == "delete_reminder":
+                    self._remove_reminder_card(msg[1])
+                    self._transcript.config(
+                        text=f"Erinnerung gelöscht: {msg[2]}", fg=ACCENT2)
                 elif kind == "status":
                     self._set_status(msg[1], msg[2])
                 elif kind == "ollama_models":
