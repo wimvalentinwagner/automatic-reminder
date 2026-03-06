@@ -11,7 +11,7 @@ if not exist ".venv\Scripts\python.exe" (
     echo.
 )
 
-:: Startup-Check (Updates + Dependencies)
+:: Startup-Check UI (blockiert bis Fenster geschlossen)
 .venv\Scripts\python.exe updater.py
 echo.
 
