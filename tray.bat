@@ -11,9 +11,5 @@ if not exist ".venv\Scripts\python.exe" (
     echo.
 )
 
-:: Startup-Check (Updates + Dependencies)
-.venv\Scripts\python.exe updater.py
-echo.
-
 :: Im Tray starten, kein Konsolenfenster
 start "" .venv\Scripts\pythonw.exe tray.py
