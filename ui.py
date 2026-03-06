@@ -152,6 +152,7 @@ class ReminderApp(tk.Tk):
             font=(FONT, 9), height=8,
         )
         self._ollama_combo.pack(fill="x", padx=12, pady=(0, 10))
+        self._ollama_combo.bind("<<ComboboxSelected>>", self._on_ollama_model_selected)
 
         # ── Download-Fortschritt ───────────────────────────────────────────
         self._dl_frame = tk.Frame(self, bg=BG_CARD)
@@ -230,11 +231,38 @@ class ReminderApp(tk.Tk):
         self._canvas.bind_all("<MouseWheel>", self._on_mousewheel)
         self._reminder_items = []
 
-    # ── Ollama Modelle laden ───────────────────────────────────────────────
+    # ── Ollama Modelle laden & auswählen ──────────────────────────────────
 
     def _load_ollama_models(self):
         models = fetch_ollama_models()
         self._queue.put(("ollama_models", models))
+
+    def _on_ollama_model_selected(self, _evt=None):
+        model = self._selected_ollama.get()
+        if not model or model.startswith("("):
+            return
+        if not is_model_installed(model):
+            threading.Thread(
+                target=self._pull_ollama_model, args=(model,), daemon=True
+            ).start()
+
+    def _pull_ollama_model(self, model: str):
+        self._queue.put(("ollama_pull_start", model))
+
+        def on_progress(status, pct, completed, total):
+            mb_done  = completed / (1024 * 1024)
+            mb_total = total     / (1024 * 1024)
+            label = status if pct == 0 else f"{mb_done:.0f} MB / {mb_total:.0f} MB"
+            self._queue.put(("ollama_pull_progress", pct, label))
+
+        try:
+            pull_model(model, progress_callback=on_progress)
+            self._queue.put(("ollama_pull_done", model))
+            # Modellliste neu laden
+            threading.Thread(target=self._load_ollama_models, daemon=True).start()
+        except Exception as e:
+            self._queue.put(("error", f"Pull fehlgeschlagen: {e}"))
+            self._queue.put(("ollama_pull_done", model))
 
     # ── Whisper Modell-Karten ──────────────────────────────────────────────
 
@@ -415,20 +443,18 @@ class ReminderApp(tk.Tk):
             # ── Ollama-Modell prüfen & ggf. herunterladen ─────────────────
             if not is_model_installed(ollama_model):
                 self._queue.put(("ollama_pull_start", ollama_model))
-
-                def on_pull_progress(status, pct, completed, total):
-                    mb_done  = completed / (1024 * 1024)
-                    mb_total = total    / (1024 * 1024)
-                    label = status if pct == 0 else f"{mb_done:.0f} MB / {mb_total:.0f} MB"
-                    self._queue.put(("ollama_pull_progress", pct, label))
-
                 try:
-                    pull_model(ollama_model, progress_callback=on_pull_progress)
+                    def _on_prog(status, pct, completed, total):
+                        mb_done  = completed / (1024 * 1024)
+                        mb_total = total     / (1024 * 1024)
+                        label = status if pct == 0 else f"{mb_done:.0f} MB / {mb_total:.0f} MB"
+                        self._queue.put(("ollama_pull_progress", pct, label))
+                    pull_model(ollama_model, progress_callback=_on_prog)
+                    self._queue.put(("ollama_pull_done", ollama_model))
                 except Exception as e:
                     self._queue.put(("error", f"Ollama Pull fehlgeschlagen: {e}"))
                     return
 
-                self._queue.put(("ollama_pull_done", ollama_model))
 
             # ── Whisper-Modell laden ───────────────────────────────────────
             cached = is_model_cached(whisper_model)
