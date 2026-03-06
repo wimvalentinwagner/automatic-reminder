@@ -10,21 +10,41 @@ PROVIDERS = {
     "apple": {
         "label":    "Apple iCloud",
         "url":      "https://caldav.icloud.com",
-        "help":     "App-spezifisches Passwort unter appleid.apple.com → Sicherheit",
+        "help": (
+            "Du brauchst ein App-spezifisches Passwort – NICHT dein normales Apple-Passwort.\n"
+            "Schritt 1: Öffne appleid.apple.com\n"
+            "Schritt 2: Anmeldung & Sicherheit → App-spezifische Passwörter\n"
+            "Schritt 3: Klicke '+' und gib einen Namen ein (z.B. 'Erinnerungs-KI')\n"
+            "Schritt 4: Kopiere das generierte Passwort und trage es hier ein."
+        ),
+        "help_url":  "https://appleid.apple.com",
         "user_hint": "Apple ID (E-Mail)",
         "pass_hint": "App-spezifisches Passwort",
     },
     "outlook": {
         "label":    "Microsoft Outlook 365",
         "url":      "https://outlook.office365.com",
-        "help":     "Microsoft-Konto E-Mail + Passwort (oder App-Passwort bei 2FA)",
+        "help": (
+            "Verwende deine Microsoft-E-Mail und dein normales Passwort.\n"
+            "Bei 2-Faktor-Authentifizierung brauchst du ein App-Passwort:\n"
+            "Schritt 1: Öffne account.microsoft.com\n"
+            "Schritt 2: Sicherheit → Erweiterte Sicherheitsoptionen\n"
+            "Schritt 3: App-Passwörter → Neues App-Passwort erstellen\n"
+            "Schritt 4: Trage das generierte Passwort hier ein."
+        ),
+        "help_url":  "https://account.microsoft.com/security",
         "user_hint": "Microsoft-Konto E-Mail",
         "pass_hint": "Passwort / App-Passwort",
     },
     "nextcloud": {
         "label":    "Nextcloud",
-        "url":      "",  # wird vom User eingetragen
-        "help":     "URL deiner Nextcloud-Instanz",
+        "url":      "",
+        "help": (
+            "Trage die URL deiner Nextcloud-Instanz ein (z.B. https://cloud.example.com).\n"
+            "Benutzername und Passwort sind dieselben wie beim Nextcloud-Login.\n"
+            "Tipp: Du kannst auch ein App-Passwort erstellen unter\n"
+            "Einstellungen → Sicherheit → Geräte & Sitzungen → App-Passwort erstellen."
+        ),
         "user_hint": "Benutzername",
         "pass_hint": "Passwort",
         "custom_url": True,
@@ -32,7 +52,11 @@ PROVIDERS = {
     "caldav": {
         "label":    "Eigener CalDAV-Server",
         "url":      "",
-        "help":     "Beliebiger CalDAV-kompatibler Server",
+        "help": (
+            "Trage die CalDAV-URL deines Servers ein.\n"
+            "Diese findest du in den Einstellungen deines Kalender-Anbieters oder\n"
+            "in der Dokumentation deines Servers (oft /dav/ oder /calendars/)."
+        ),
         "user_hint": "Benutzername",
         "pass_hint": "Passwort",
         "custom_url": True,

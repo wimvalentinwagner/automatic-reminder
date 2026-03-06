@@ -318,10 +318,10 @@ class ReminderApp(tk.Tk):
         card = tk.Frame(parent, bg=BG_CARD)
         card.pack(fill="x", padx=20, pady=(0, 8))
 
-        row = tk.Frame(card, bg=BG_CARD, padx=12, pady=10)
-        row.pack(fill="x")
+        hrow = tk.Frame(card, bg=BG_CARD, padx=12, pady=10)
+        hrow.pack(fill="x")
 
-        left = tk.Frame(row, bg=BG_CARD)
+        left = tk.Frame(hrow, bg=BG_CARD)
         left.pack(side="left", fill="x", expand=True)
         tk.Label(left, text="Google Kalender", font=(FONT, 10, "bold"),
                  bg=BG_CARD, fg=TEXT).pack(anchor="w")
@@ -330,14 +330,61 @@ class ReminderApp(tk.Tk):
         self._gcal_status.pack(anchor="w")
 
         self._gcal_btn = tk.Button(
-            row, text="", font=(FONT, 8),
+            hrow, text="", font=(FONT, 8),
             bg=ACCENT, fg="white", activebackground="#5551e0",
             activeforeground="white", relief="flat", bd=0,
             cursor="hand2", padx=10, pady=4,
-            command=self._toggle_gcal,
         )
         self._gcal_btn.pack(side="right")
+
+        # ── Einrichtungs-Panel (nur wenn nicht konfiguriert) ───────────────
+        self._gcal_setup = tk.Frame(card, bg=BG_CARD, padx=12)
+
+        steps = (
+            "So richtest du Google Kalender ein:\n"
+            "1.  Klicke 'Google Cloud Console öffnen'\n"
+            "2.  Erstelle ein neues Projekt (oben links)\n"
+            "3.  APIs & Dienste  →  Bibliothek  →  'Google Calendar API' aktivieren\n"
+            "4.  APIs & Dienste  →  Anmeldedaten  →  'Anmeldedaten erstellen'\n"
+            "5.  Wähle 'OAuth 2.0-Client-ID'  →  Typ: Desktop-App  →  Erstellen\n"
+            "6.  Klicke das Download-Symbol (↓) neben der erstellten ID\n"
+            "7.  Wähle die heruntergeladene JSON-Datei mit dem Button unten aus"
+        )
+        tk.Label(self._gcal_setup, text=steps, font=(FONT, 8), bg=BG_CARD,
+                 fg=TEXT_MID, justify="left", anchor="w",
+                 wraplength=440).pack(fill="x", pady=(0, 10))
+
+        link_row = tk.Frame(self._gcal_setup, bg=BG_CARD)
+        link_row.pack(fill="x", pady=(0, 12))
+
+        tk.Button(
+            link_row, text="Google Cloud Console öffnen", font=(FONT, 8),
+            bg=BG_ITEM, fg=TEXT, activebackground=ACCENT, activeforeground="white",
+            relief="flat", bd=0, cursor="hand2", padx=10, pady=5,
+            command=lambda: __import__("webbrowser").open(
+                "https://console.cloud.google.com/apis/credentials"),
+        ).pack(side="left")
+
+        tk.Button(
+            link_row, text="credentials.json auswählen", font=(FONT, 8),
+            bg=ACCENT, fg="white", activebackground="#5551e0", activeforeground="white",
+            relief="flat", bd=0, cursor="hand2", padx=10, pady=5,
+            command=self._pick_gcal_credentials,
+        ).pack(side="right")
+
         self._update_gcal_ui()
+
+    def _pick_gcal_credentials(self):
+        import tkinter.filedialog as fd
+        import shutil
+        path = fd.askopenfilename(
+            title="credentials.json auswählen",
+            filetypes=[("JSON-Datei", "*.json"), ("Alle Dateien", "*.*")],
+        )
+        if path:
+            dest = os.path.join(os.path.dirname(os.path.abspath(__file__)), "credentials.json")
+            shutil.copy(path, dest)
+            self._update_gcal_ui()
 
     def _build_cal_caldav(self, parent, pid: str, pinfo: dict):
         cfg = cal_providers.get_provider_config(pid)
@@ -382,9 +429,16 @@ class ReminderApp(tk.Tk):
         _make_field(pinfo.get("pass_hint", "Passwort") + ":", pw_var, show="*")
 
         if pinfo.get("help"):
-            tk.Label(form, text=pinfo["help"], font=(FONT, 7), bg=BG_CARD,
-                     fg=TEXT_DIM, wraplength=380, justify="left",
-                     anchor="w").pack(fill="x", pady=(0, 6))
+            tk.Label(form, text=pinfo["help"], font=(FONT, 8), bg=BG_CARD,
+                     fg=TEXT_MID, wraplength=400, justify="left",
+                     anchor="w").pack(fill="x", pady=(0, 8))
+        if pinfo.get("help_url"):
+            tk.Button(form, text=f"Anleitung öffnen: {pinfo['help_url']}",
+                      font=(FONT, 7), bg=BG_ITEM, fg=TEXT_DIM,
+                      activebackground=ACCENT, activeforeground="white",
+                      relief="flat", bd=0, cursor="hand2", padx=8, pady=3,
+                      command=lambda u=pinfo["help_url"]: __import__("webbrowser").open(u),
+                      ).pack(anchor="w", pady=(0, 8))
 
         btn_row = tk.Frame(form, bg=BG_CARD)
         btn_row.pack(fill="x", pady=(0, 10))
@@ -521,14 +575,19 @@ class ReminderApp(tk.Tk):
 
     def _update_gcal_ui(self):
         if not gcal.is_configured():
-            self._gcal_status.config(text="credentials.json fehlt", fg=ACCENT2)
-            self._gcal_btn.config(text="Anleitung", command=self._show_gcal_help)
+            self._gcal_status.config(text="Nicht eingerichtet", fg=ACCENT2)
+            self._gcal_btn.pack_forget()
+            self._gcal_setup.pack(fill="x")
         elif gcal.is_connected():
             self._gcal_status.config(text="● Verbunden", fg=GREEN)
             self._gcal_btn.config(text="Trennen", command=self._toggle_gcal)
+            self._gcal_btn.pack(side="right")
+            self._gcal_setup.pack_forget()
         else:
-            self._gcal_status.config(text="Nicht verbunden", fg=TEXT_DIM)
+            self._gcal_status.config(text="Eingerichtet – noch nicht verbunden", fg=TEXT_DIM)
             self._gcal_btn.config(text="Verbinden", command=self._toggle_gcal)
+            self._gcal_btn.pack(side="right")
+            self._gcal_setup.pack_forget()
 
     def _toggle_gcal(self):
         if gcal.is_connected():
@@ -543,34 +602,6 @@ class ReminderApp(tk.Tk):
             self._queue.put(("gcal_connected",))
         except Exception as e:
             self._queue.put(("gcal_error", str(e)))
-
-    def _show_gcal_help(self):
-        win = tk.Toplevel(self)
-        win.title("Google Kalender einrichten")
-        win.configure(bg=BG)
-        win.geometry("480x320")
-        win.resizable(False, False)
-        steps = [
-            "1. Öffne console.cloud.google.com",
-            "2. Neues Projekt erstellen",
-            "3. APIs & Dienste → Bibliothek",
-            "4. 'Google Calendar API' aktivieren",
-            "5. APIs & Dienste → Anmeldedaten",
-            "6. OAuth 2.0-Client-ID erstellen (Desktop-App)",
-            "7. JSON herunterladen als 'credentials.json'",
-            "8. credentials.json in diesen Ordner legen:",
-            f"   {os.path.dirname(os.path.abspath(__file__))}",
-            "9. Neu starten und 'Verbinden' klicken",
-        ]
-        tk.Label(win, text="Google Kalender einrichten", font=(FONT, 12, "bold"),
-                 bg=BG, fg=TEXT, pady=14).pack()
-        for step in steps:
-            tk.Label(win, text=step, font=(FONT, 9), bg=BG,
-                     fg=TEXT if not step.startswith("  ") else YELLOW,
-                     anchor="w").pack(fill="x", padx=20, pady=1)
-        tk.Button(win, text="Schließen", font=(FONT, 9), bg=ACCENT, fg="white",
-                  relief="flat", bd=0, padx=16, pady=6,
-                  command=win.destroy).pack(pady=12)
 
     # ── Whisper Modell-Karten ──────────────────────────────────────────────
 
