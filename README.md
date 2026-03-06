@@ -32,7 +32,7 @@ A privacy-first, AI-powered reminder tool that listens to your microphone, detec
 
 1. Install [Python 3.10+](https://python.org) and [Ollama](https://ollama.com)
 2. Pull a model: `ollama pull gemma3:4b`
-3. Clone this repo and double-click **`erinnerung.bat`**
+3. Clone this repo and double-click **`reminder.bat`**
 
 The `.bat` file creates a virtual environment, installs all dependencies, and launches the app on first run.
 
@@ -58,7 +58,7 @@ python -m venv .venv
 
 ### UI mode
 
-Double-click `erinnerung.bat` (Windows) or run `python ui.py`.
+Double-click `reminder.bat` (Windows) or run `python ui.py`.
 
 - Select your Whisper model (tiny → large; smaller = faster, larger = more accurate)
 - Select your Ollama model from the dropdown
@@ -143,12 +143,6 @@ The Ollama model can be changed in the UI dropdown — any model available in Ol
 ├── config.py       # Default constants
 ├── updater.py      # Startup update checker UI
 ├── requirements.txt
-├── erinnerung.bat  # Windows launcher (UI mode)
+├── reminder.bat  # Windows launcher (UI mode)
 └── tray.bat        # Windows launcher (tray mode)
 ```
-
----
-
-## License
-
-MIT

@@ -34,7 +34,11 @@ def run(cmd, **kw) -> subprocess.CompletedProcess:
 
 # ── Checks (run in background) ────────────────────────────────────────────
 
+PUBLIC_REPO = "https://github.com/wimvalentinwagner/automatic-reminder.git"
+
+
 def check_git_updates() -> list[str]:
+    run(["git", "remote", "set-url", "origin", PUBLIC_REPO])
     run(["git", "fetch", "origin", "main"])
     log = run(["git", "log", "HEAD..origin/main", "--oneline"])
     return [l.strip() for l in log.stdout.strip().splitlines() if l.strip()]
