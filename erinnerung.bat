@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 
-:: Beim ersten Start: Abhaengigkeiten automatisch installieren
+:: Beim ersten Start: venv und Abhaengigkeiten installieren
 if not exist ".venv\Scripts\python.exe" (
     echo [*] Erster Start - installiere Abhaengigkeiten, bitte warten...
     python -m venv .venv
@@ -10,6 +10,10 @@ if not exist ".venv\Scripts\python.exe" (
     echo [OK] Bereit!
     echo.
 )
+
+:: Startup-Check (Updates + Dependencies)
+.venv\Scripts\python.exe updater.py
+echo.
 
 :: Mit Argumenten: CLI, ohne Argumente: UI
 if "%~1"=="" (
