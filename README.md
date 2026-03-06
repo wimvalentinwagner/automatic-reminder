@@ -13,6 +13,7 @@ A privacy-first, AI-powered reminder tool that listens to your microphone, detec
 - **Multilingual** — supports English and German (switchable in-app with the EN/DE button)
 - **Add & delete reminders by voice** — say "remind me to call John tomorrow" or "forget the workout reminder"
 - **Calendar sync** — optional integration with Google Calendar, Apple iCloud, Microsoft Outlook 365, Nextcloud, or any CalDAV server
+
 ⚠️This feature has not yet been tested and may cause problems⚠️
 - **Desktop UI** — clean dark-mode UI with model selection, live transcript, and reminder list
 - **Auto-updater** — checks for git updates and missing packages on startup
