@@ -1,6 +1,6 @@
 """
-Zentrale Kalender-Schnittstelle.
-Koordiniert alle aktivierten Kalender-Provider.
+Central calendar interface.
+Coordinates all enabled calendar providers.
 """
 from __future__ import annotations
 from datetime import datetime

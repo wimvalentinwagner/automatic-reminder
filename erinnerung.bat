@@ -1,21 +1,21 @@
 @echo off
 cd /d "%~dp0"
 
-:: Beim ersten Start: venv und Abhaengigkeiten installieren
+:: First run: create venv and install dependencies
 if not exist ".venv\Scripts\python.exe" (
-    echo [*] Erster Start - installiere Abhaengigkeiten, bitte warten...
+    echo [*] First run - installing dependencies, please wait...
     python -m venv .venv
     .venv\Scripts\python.exe -m pip install --upgrade pip -q
     .venv\Scripts\python.exe -m pip install -r requirements.txt -q
-    echo [OK] Bereit!
+    echo [OK] Ready!
     echo.
 )
 
-:: Startup-Check UI (blockiert bis Fenster geschlossen)
+:: Startup check UI (blocks until window is closed)
 .venv\Scripts\python.exe updater.py
 echo.
 
-:: Mit Argumenten: CLI, ohne Argumente: UI
+:: With arguments: CLI mode, without: UI mode
 if "%~1"=="" (
     start "" .venv\Scripts\pythonw.exe ui.py
 ) else (

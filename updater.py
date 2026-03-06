@@ -1,5 +1,5 @@
 """
-Startup-Check mit UI: Git-Updates und fehlende Dependencies prüfen.
+Startup check with UI: verify git updates and missing dependencies.
 """
 import subprocess
 import sys
@@ -9,7 +9,7 @@ import queue
 import tkinter as tk
 import tkinter.ttk as ttk
 
-# ── Pfade ─────────────────────────────────────────────────────────────────
+# ── Paths ─────────────────────────────────────────────────────────────────
 
 BASE   = os.path.dirname(os.path.abspath(__file__))
 PIP    = os.path.join(BASE, ".venv", "Scripts", "pip.exe")
@@ -32,7 +32,7 @@ def run(cmd, **kw) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, capture_output=True, text=True, cwd=BASE, **kw)
 
 
-# ── Checks (laufen im Hintergrund) ────────────────────────────────────────
+# ── Checks (run in background) ────────────────────────────────────────────
 
 def check_git_updates() -> list[str]:
     run(["git", "fetch", "origin", "main"])
@@ -62,27 +62,27 @@ def check_dependencies() -> list[str]:
 
 
 def apply_git_update(log_cb):
-    log_cb("Git pull läuft...")
+    log_cb("Running git pull...")
     result = run(["git", "pull", "origin", "main"])
     if result.returncode == 0:
-        log_cb("Code aktualisiert.")
+        log_cb("Code updated.")
     else:
-        log_cb(f"Fehler: {result.stderr.strip()}")
+        log_cb(f"Error: {result.stderr.strip()}")
 
 
 def install_packages(packages: list[str], log_cb):
     for pkg in packages:
-        log_cb(f"Installiere {pkg}...")
+        log_cb(f"Installing {pkg}...")
         run([PIP, "install", pkg, "-q"])
-    log_cb("Alle Pakete installiert.")
+    log_cb("All packages installed.")
 
 
-# ── Update-UI ─────────────────────────────────────────────────────────────
+# ── Update UI ─────────────────────────────────────────────────────────────
 
 class UpdaterWindow(tk.Tk):
     def __init__(self, commits: list[str], missing: list[str]):
         super().__init__()
-        self.title("Erinnerungs-KI – Update")
+        self.title("Reminder AI – Update")
         self.geometry("480x460")
         self.resizable(False, False)
         self.configure(bg=BG)
@@ -96,22 +96,22 @@ class UpdaterWindow(tk.Tk):
         self.after(100, self._show_results)
         self.after(100, self._poll)
 
-    # ── UI aufbauen ───────────────────────────────────────────────────────
+    # ── Build UI ──────────────────────────────────────────────────────────
 
     def _build(self):
         # Header
         hdr = tk.Frame(self, bg=BG, pady=16)
         hdr.pack(fill="x", padx=20)
-        tk.Label(hdr, text="Erinnerungs", font=(FONT, 18, "bold"),
+        tk.Label(hdr, text="Reminder", font=(FONT, 18, "bold"),
                  bg=BG, fg=TEXT).pack(side="left")
-        tk.Label(hdr, text="KI", font=(FONT, 18, "bold"),
+        tk.Label(hdr, text="AI", font=(FONT, 18, "bold"),
                  bg=BG, fg=ACCENT).pack(side="left")
-        tk.Label(hdr, text="Update-Check", font=(FONT, 10),
+        tk.Label(hdr, text="Update Check", font=(FONT, 10),
                  bg=BG, fg=TEXT_DIM).pack(side="left", padx=10, pady=4)
 
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20)
 
-        # Liste (Commits / Pakete)
+        # List (commits / packages)
         list_frame = tk.Frame(self, bg=BG_CARD)
         list_frame.pack(fill="both", expand=True, padx=20, pady=(8, 0))
 
@@ -122,12 +122,12 @@ class UpdaterWindow(tk.Tk):
         self._listbox = tk.Frame(list_frame, bg=BG_CARD)
         self._listbox.pack(fill="both", expand=True, padx=12, pady=(0, 8))
 
-        # Log-Zeile
+        # Log line
         self._log_label = tk.Label(self, text="", font=(FONT, 8),
                                     bg=BG, fg=TEXT_DIM)
         self._log_label.pack(pady=(6, 0))
 
-        # Fortschrittsbalken (versteckt)
+        # Progress bar (hidden)
         style = ttk.Style()
         style.theme_use("default")
         style.configure("up.Horizontal.TProgressbar",
@@ -142,7 +142,7 @@ class UpdaterWindow(tk.Tk):
         btn_row.pack(fill="x", padx=20)
 
         self._skip_btn = tk.Button(
-            btn_row, text="Überspringen", font=(FONT, 10),
+            btn_row, text="Skip", font=(FONT, 10),
             bg=BG_ITEM, fg=TEXT_DIM, activebackground=BG_CARD,
             activeforeground=TEXT, relief="flat", bd=0,
             cursor="hand2", padx=16, pady=8,
@@ -151,7 +151,7 @@ class UpdaterWindow(tk.Tk):
         self._skip_btn.pack(side="right", padx=(8, 0))
 
         self._update_btn = tk.Button(
-            btn_row, text="Prüfe...", font=(FONT, 10, "bold"),
+            btn_row, text="Checking...", font=(FONT, 10, "bold"),
             bg=BG_ITEM, fg=TEXT_DIM, activebackground=ACCENT,
             activeforeground="white", relief="flat", bd=0,
             cursor="hand2", padx=16, pady=8,
@@ -159,7 +159,7 @@ class UpdaterWindow(tk.Tk):
         )
         self._update_btn.pack(side="right")
 
-    # ── Queue pollen ──────────────────────────────────────────────────────
+    # ── Poll queue ────────────────────────────────────────────────────────
 
     def _poll(self):
         try:
@@ -171,8 +171,8 @@ class UpdaterWindow(tk.Tk):
                 elif kind == "done":
                     self._progress.stop()
                     self._progress.pack_forget()
-                    self._log_label.config(text="Fertig.", fg=GREEN)
-                    self._update_btn.config(text="Starten", bg=GREEN,
+                    self._log_label.config(text="Done.", fg=GREEN)
+                    self._update_btn.config(text="Launch", bg=GREEN,
                                              fg=BG, state="normal",
                                              command=self.destroy)
                     self._skip_btn.config(state="disabled")
@@ -180,41 +180,40 @@ class UpdaterWindow(tk.Tk):
             pass
         self.after(100, self._poll)
 
-    # ── Ergebnisse anzeigen ───────────────────────────────────────────────
+    # ── Show results ──────────────────────────────────────────────────────
 
     def _show_results(self):
-        # Alten Inhalt leeren
         for w in self._listbox.winfo_children():
             w.destroy()
 
         has_update = bool(self._commits or self._missing)
 
         if self._commits:
-            self._list_title.config(text="Neue Commits")
+            self._list_title.config(text="New Commits")
             for c in self._commits:
                 tk.Label(self._listbox, text=f"• {c}", font=(FONT, 8),
                           bg=BG_CARD, fg=TEXT_DIM, anchor="w",
                           wraplength=420, justify="left").pack(anchor="w", pady=1)
 
         if self._missing:
-            self._list_title.config(text="Fehlende Pakete" if not self._commits
-                                     else "Neue Commits + Fehlende Pakete")
+            self._list_title.config(text="Missing Packages" if not self._commits
+                                     else "New Commits + Missing Packages")
             for p in self._missing:
                 tk.Label(self._listbox, text=f"• {p}", font=(FONT, 8),
                           bg=BG_CARD, fg=ACCENT2, anchor="w").pack(anchor="w", pady=1)
 
         if not has_update:
-            self._list_title.config(text="Alles aktuell")
-            tk.Label(self._listbox, text="Keine Updates oder fehlenden Pakete.",
+            self._list_title.config(text="All up to date")
+            tk.Label(self._listbox, text="No updates or missing packages.",
                       font=(FONT, 9), bg=BG_CARD, fg=TEXT_DIM).pack(pady=8)
-            self._update_btn.config(text="Starten", bg=GREEN, fg=BG,
+            self._update_btn.config(text="Launch", bg=GREEN, fg=BG,
                                      state="normal", command=self.destroy)
             self._skip_btn.config(state="disabled")
         else:
-            self._update_btn.config(text="Jetzt updaten", bg=ACCENT, fg="white",
+            self._update_btn.config(text="Update now", bg=ACCENT, fg="white",
                                      state="normal")
 
-    # ── Aktionen ──────────────────────────────────────────────────────────
+    # ── Actions ───────────────────────────────────────────────────────────
 
     def _apply_updates(self):
         self._update_btn.config(state="disabled")
@@ -238,15 +237,15 @@ class UpdaterWindow(tk.Tk):
         self.destroy()
 
 
-# ── Einstieg ──────────────────────────────────────────────────────────────
+# ── Entry point ───────────────────────────────────────────────────────────
 
 def main():
-    # Erst still prüfen — UI nur zeigen wenn nötig
+    # Check silently first — only show UI if needed
     commits = check_git_updates()
     missing = check_dependencies()
 
     if not commits and not missing:
-        return  # Alles aktuell, direkt starten
+        return  # All up to date, launch directly
 
     app = UpdaterWindow(commits=commits, missing=missing)
     app.mainloop()

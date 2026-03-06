@@ -12,7 +12,7 @@ try:
     HAS_VAD = True
 except ImportError:
     HAS_VAD = False
-    print("[!] webrtcvad nicht verfügbar, nutze energie-basierte Erkennung")
+    print("[!] webrtcvad not available, using energy-based detection")
 
 
 class MicListener:
@@ -20,9 +20,9 @@ class MicListener:
         self.on_speech = on_speech_callback
         self.running = False
 
-        print(f"[*] Lade Whisper-Modell '{WHISPER_MODEL}'...")
+        print(f"[*] Loading Whisper model '{WHISPER_MODEL}'...")
         self.whisper = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
-        print("[*] Whisper geladen.")
+        print("[*] Whisper loaded.")
 
         if HAS_VAD:
             self.vad = webrtcvad.Vad(VAD_MODE)
@@ -99,8 +99,8 @@ class MicListener:
 
     def start(self):
         self.running = True
-        print(f"[*] Höre zu... (Sprache: {WHISPER_LANGUAGE}, {SAMPLE_RATE}Hz)")
-        print("[*] Drücke Ctrl+C zum Beenden.\n")
+        print(f"[*] Listening... (language: {WHISPER_LANGUAGE}, {SAMPLE_RATE}Hz)")
+        print("[*] Press Ctrl+C to stop.\n")
         with sd.InputStream(
             samplerate=SAMPLE_RATE,
             channels=CHANNELS,

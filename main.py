@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Erinnerungs-Tool
-Hört per Mikrofon zu, erkennt Erinnerungen/Aufgaben im Gespräch
-und speichert sie automatisch.
+Reminder AI
+Listens via microphone, detects reminders/tasks in conversation
+and saves them automatically.
 """
 import sys
 import argparse
@@ -21,8 +21,8 @@ def on_speech(text: str):
             original=result.get("original", text),
         )
         notify(
-            "Neue Erinnerung erkannt!",
-            f"{reminder['task']}" + (f"\nWann: {reminder['time_expression']}" if reminder.get("time_expression") else ""),
+            "New reminder detected!",
+            f"{reminder['task']}" + (f"\nWhen: {reminder['time_expression']}" if reminder.get("time_expression") else ""),
         )
 
 
@@ -32,22 +32,22 @@ def run_listener():
     try:
         listener.start()
     except KeyboardInterrupt:
-        print("\n[*] Beende...")
+        print("\n[*] Stopping...")
         listener.stop()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Erinnerungs-Tool mit Ollama + Mikrofon")
+    parser = argparse.ArgumentParser(description="Reminder AI with Ollama + microphone")
     subparsers = parser.add_subparsers(dest="command")
 
-    subparsers.add_parser("listen", help="Mikrofon starten und auf Erinnerungen warten")
-    subparsers.add_parser("list", help="Alle gespeicherten Erinnerungen anzeigen")
+    subparsers.add_parser("listen", help="Start microphone and listen for reminders")
+    subparsers.add_parser("list", help="Show all saved reminders")
 
-    add_parser = subparsers.add_parser("add", help="Erinnerung manuell hinzufügen")
-    add_parser.add_argument("text", help="Text der Erinnerung")
+    add_parser = subparsers.add_parser("add", help="Manually add a reminder")
+    add_parser.add_argument("text", help="Reminder text")
 
-    test_parser = subparsers.add_parser("test", help="Erinnerungserkennung direkt testen")
-    test_parser.add_argument("text", help="Text zum Testen")
+    test_parser = subparsers.add_parser("test", help="Test reminder detection directly")
+    test_parser.add_argument("text", help="Text to test")
 
     args = parser.parse_args()
 
@@ -64,20 +64,20 @@ def main():
     elif args.command == "test":
         from config import OLLAMA_MODEL
         if not is_model_installed(OLLAMA_MODEL):
-            print(f"[*] Modell '{OLLAMA_MODEL}' nicht installiert – lade herunter...")
+            print(f"[*] Model '{OLLAMA_MODEL}' not installed – downloading...")
             def show(status, pct, done, total):
                 bar = ("█" * (pct // 5)).ljust(20)
                 print(f"\r  [{bar}] {pct}% – {status}", end="", flush=True)
             pull_model(OLLAMA_MODEL, progress_callback=show)
-            print("\n[OK] Fertig!")
-        print(f"\nTest-Text: \"{args.text}\"")
+            print("\n[OK] Done!")
+        print(f"\nTest text: \"{args.text}\"")
         result = detect_reminder(args.text)
         if result:
-            print(f"[OK] Erinnerung erkannt!")
-            print(f"     Aufgabe: {result['task']}")
-            print(f"     Zeitangabe: {result.get('time_expression')}")
+            print(f"[OK] Reminder detected!")
+            print(f"     Task: {result['task']}")
+            print(f"     Time: {result.get('time_expression')}")
         else:
-            print("[--] Keine Erinnerung erkannt.")
+            print("[--] No reminder detected.")
 
 
 if __name__ == "__main__":

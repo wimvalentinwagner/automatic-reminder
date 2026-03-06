@@ -6,3 +6,4 @@ settings.json
 credentials.json
 token.json
 *.log
+tray_status.pid

@@ -14,6 +14,6 @@ def notify(title: str, message: str):
             script = f'display notification "{message}" with title "{title}" sound name "Ping"'
             subprocess.run(["osascript", "-e", script], check=True)
         else:
-            print(f"\n[!] ERINNERUNG: {title} - {message}\n")
+            print(f"\n[!] REMINDER: {title} - {message}\n")
     except (subprocess.CalledProcessError, FileNotFoundError):
-        print(f"\n[!] ERINNERUNG: {title}\n    {message}\n")
+        print(f"\n[!] REMINDER: {title}\n    {message}\n")

@@ -1,6 +1,6 @@
 """
 Google Calendar Integration.
-Erfordert credentials.json aus der Google Cloud Console.
+Requires credentials.json from the Google Cloud Console.
 """
 import os
 import json
@@ -53,10 +53,10 @@ def disconnect():
         os.remove(TOKEN)
 
 
-# ── Zeitausdruck → datetime ───────────────────────────────────────────────
+# ── Time expression → datetime ────────────────────────────────────────────
 
 def parse_time_expression(expr: str | None, model: str = None) -> datetime | None:
-    """Use Ollama to convert German natural language time to datetime."""
+    """Use Ollama to convert a natural language time expression to datetime."""
     if not expr:
         return None
 
@@ -64,9 +64,9 @@ def parse_time_expression(expr: str | None, model: str = None) -> datetime | Non
     used_model = model or OLLAMA_MODEL
 
     prompt = (
-        f"Heute ist {now_str}. "
-        f"Wandle diesen deutschen Zeitausdruck in ein ISO 8601 Datum+Uhrzeit um: \"{expr}\". "
-        "Antworte NUR mit dem ISO-Datetime (z.B. 2025-03-07T18:00:00) oder null wenn unklar."
+        f"Today is {now_str}. "
+        f"Convert this time expression to an ISO 8601 datetime: \"{expr}\". "
+        "Reply ONLY with the ISO datetime (e.g. 2025-03-07T18:00:00) or null if unclear."
     )
 
     try:
@@ -79,7 +79,7 @@ def parse_time_expression(expr: str | None, model: str = None) -> datetime | Non
         raw = r.json()["response"].strip().strip('"').strip("'")
         if raw.lower() == "null" or not raw:
             return None
-        # Nur den datetime-Teil extrahieren
+        # Extract the datetime token
         for token in raw.split():
             try:
                 return datetime.fromisoformat(token.rstrip("."))
@@ -90,7 +90,7 @@ def parse_time_expression(expr: str | None, model: str = None) -> datetime | Non
     return None
 
 
-# ── Kalender-Events ───────────────────────────────────────────────────────
+# ── Calendar events ───────────────────────────────────────────────────────
 
 def add_event_dt(task: str, start_dt: datetime | None) -> str | None:
     """Add event with a pre-parsed datetime (or None for all-day today)."""
@@ -110,7 +110,7 @@ def add_event_dt(task: str, start_dt: datetime | None) -> str | None:
         event = service.events().insert(calendarId="primary", body=body).execute()
         return event.get("id")
     except Exception as e:
-        print(f"[gcal] Fehler: {e}")
+        print(f"[gcal] Error: {e}")
         return None
 
 
@@ -132,9 +132,9 @@ def add_event(task: str, time_expression: str | None,
                 "end":   {"dateTime": end_dt.isoformat(),   "timeZone": "Europe/Berlin"},
             }
             if time_expression:
-                event_body["description"] = f"Zeitangabe: {time_expression}"
+                event_body["description"] = f"Time: {time_expression}"
         else:
-            # Kein Zeitpunkt → Ganztages-Event für heute
+            # No time → all-day event for today
             today = datetime.now().strftime("%Y-%m-%d")
             event_body = {
                 "summary": task,
@@ -146,7 +146,7 @@ def add_event(task: str, time_expression: str | None,
         return event.get("id")
 
     except Exception as e:
-        print(f"[gcal] Fehler beim Erstellen: {e}")
+        print(f"[gcal] Error creating event: {e}")
         return None
 
 
@@ -157,5 +157,5 @@ def delete_event(event_id: str) -> bool:
         service.events().delete(calendarId="primary", eventId=event_id).execute()
         return True
     except Exception as e:
-        print(f"[gcal] Fehler beim Löschen: {e}")
+        print(f"[gcal] Error deleting event: {e}")
         return False

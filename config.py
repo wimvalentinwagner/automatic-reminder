@@ -2,7 +2,7 @@ OLLAMA_URL = "http://localhost:11434"
 OLLAMA_MODEL = "gemma3:4b"
 
 WHISPER_MODEL = "small"    # tiny, base, small, medium, large
-WHISPER_LANGUAGE = "de"    # German
+WHISPER_LANGUAGE = "en"    # default language (overridden by settings.json)
 
 SAMPLE_RATE = 16000
 CHANNELS = 1

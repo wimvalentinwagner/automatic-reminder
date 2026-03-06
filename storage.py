@@ -31,9 +31,9 @@ def add_reminder(task: str, time_expression: str | None, original: str,
     }
     reminders.append(reminder)
     save_reminders(reminders)
-    print(f"\n[+] Erinnerung gespeichert: '{task}'")
+    print(f"\n[+] Reminder saved: '{task}'")
     if time_expression:
-        print(f"    Zeitangabe: {time_expression}")
+        print(f"    Time: {time_expression}")
     print(f"    ID: {reminder['id']}\n")
     return reminder
 
@@ -60,11 +60,11 @@ def find_reminder_by_keyword(keyword: str) -> dict | None:
 def list_reminders():
     reminders = load_reminders()
     if not reminders:
-        print("Keine Erinnerungen gespeichert.")
+        print("No reminders saved.")
         return
-    print(f"\n--- {len(reminders)} Erinnerung(en) ---")
+    print(f"\n--- {len(reminders)} reminder(s) ---")
     for r in reminders:
-        status = "[erledigt]" if r.get("notified") else "[offen]  "
-        time_str = f" | Wann: {r['time_expression']}" if r.get("time_expression") else ""
+        status = "[done]  " if r.get("notified") else "[open]  "
+        time_str = f" | When: {r['time_expression']}" if r.get("time_expression") else ""
         print(f"{status} [{r['id']}] {r['task']}{time_str}")
     print()

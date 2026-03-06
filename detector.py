@@ -3,32 +3,31 @@ import json
 import re
 from config import OLLAMA_URL, OLLAMA_MODEL
 
-# Kurzer, klarer Prompt – keine langen Erklärungen die das Modell verwirren
 SYSTEM_PROMPT = (
-    "Du analysierst gesprochenen Text und erkennst zwei Dinge: neue Erinnerungen/Aufgaben UND das Löschen von Erinnerungen. "
-    "Antworte NUR mit JSON.\n\n"
-    "NEUE AUFGABE erkannt (auch beiläufig):\n"
-    "{\"action\": \"add\", \"task\": \"...\", \"time_expression\": \"... oder null\", \"original\": \"...\"}\n\n"
-    "LÖSCHEN einer Erinnerung erkannt:\n"
-    "{\"action\": \"delete\", \"target\": \"Stichwort der zu löschenden Erinnerung\"}\n\n"
-    "NICHTS erkannt:\n"
+    "You analyze spoken text (any language) and detect two things: new reminders/tasks AND deletion of reminders. "
+    "Reply ONLY with JSON.\n\n"
+    "NEW TASK detected (even mentioned casually):\n"
+    "{\"action\": \"add\", \"task\": \"...\", \"time_expression\": \"... or null\", \"original\": \"...\"}\n\n"
+    "DELETION of a reminder detected:\n"
+    "{\"action\": \"delete\", \"target\": \"keyword of the reminder to delete\"}\n\n"
+    "NOTHING detected:\n"
     "{\"action\": \"none\"}\n\n"
-    "Beispiele:\n"
-    "\"ich will um 6 Uhr trainieren\" → {\"action\": \"add\", \"task\": \"Trainieren\", \"time_expression\": \"um 6 Uhr\", \"original\": \"ich will um 6 Uhr trainieren\"}\n"
-    "\"ich muss noch den Arzt anrufen\" → {\"action\": \"add\", \"task\": \"Arzt anrufen\", \"time_expression\": null, \"original\": \"ich muss noch den Arzt anrufen\"}\n"
-    "\"vergiss die Erinnerung mit dem Training\" → {\"action\": \"delete\", \"target\": \"Training\"}\n"
-    "\"das mit dem Arzt erledigt sich, lösch das\" → {\"action\": \"delete\", \"target\": \"Arzt\"}\n"
-    "\"ich brauch die Einkaufen-Erinnerung nicht mehr\" → {\"action\": \"delete\", \"target\": \"Einkaufen\"}\n"
-    "\"wie war dein Tag?\" → {\"action\": \"none\"}"
+    "Examples:\n"
+    "\"I want to work out at 6\" → {\"action\": \"add\", \"task\": \"Work out\", \"time_expression\": \"at 6\", \"original\": \"I want to work out at 6\"}\n"
+    "\"I need to call the doctor\" → {\"action\": \"add\", \"task\": \"Call doctor\", \"time_expression\": null, \"original\": \"I need to call the doctor\"}\n"
+    "\"forget the workout reminder\" → {\"action\": \"delete\", \"target\": \"workout\"}\n"
+    "\"the doctor thing is taken care of, delete it\" → {\"action\": \"delete\", \"target\": \"doctor\"}\n"
+    "\"I don't need the grocery reminder anymore\" → {\"action\": \"delete\", \"target\": \"grocery\"}\n"
+    "\"how was your day?\" → {\"action\": \"none\"}"
 )
 
 
 def _extract_json(text: str) -> dict | None:
     """Robust JSON extraction: handles code blocks, extra text, etc."""
-    # Markdown-Codeblöcke entfernen
+    # Strip markdown code blocks
     text = re.sub(r"```(?:json)?\s*", "", text).strip()
 
-    # Erstes vollständiges JSON-Objekt extrahieren
+    # Extract first complete JSON object
     depth = 0
     start = None
     for i, ch in enumerate(text):
@@ -68,7 +67,7 @@ def detect_reminder(text: str, model: str = None) -> dict | None:
         response.raise_for_status()
         raw = response.json()["response"].strip()
 
-        print(f"[ollama] {raw[:120]}")     # Debug: was kommt zurück?
+        print(f"[ollama] {raw[:120]}")
 
         data = _extract_json(raw)
         if data and data.get("action") in ("add", "delete"):
@@ -76,10 +75,10 @@ def detect_reminder(text: str, model: str = None) -> dict | None:
         return None
 
     except requests.exceptions.ConnectionError:
-        print("[!] Ollama nicht erreichbar – läuft Ollama auf localhost:11434?")
+        print("[!] Ollama not reachable – is Ollama running on localhost:11434?")
         return None
     except Exception as e:
-        print(f"[!] Detector-Fehler: {e}")
+        print(f"[!] Detector error: {e}")
         return None
 
 

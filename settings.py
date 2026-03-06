@@ -12,7 +12,7 @@ def load_settings() -> dict:
                 return json.load(f)
         except Exception:
             pass
-    return {"ollama_model": OLLAMA_MODEL, "whisper_model": WHISPER_MODEL}
+    return {"ollama_model": OLLAMA_MODEL, "whisper_model": WHISPER_MODEL, "language": "en"}
 
 
 def save_settings(settings: dict):

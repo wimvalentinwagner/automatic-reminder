@@ -1,64 +1,64 @@
 """
-CalDAV-basierte Kalender-Integration.
-Unterstützt: Apple iCloud, Microsoft Outlook 365, Nextcloud, generisches CalDAV.
+CalDAV-based calendar integration.
+Supports: Apple iCloud, Microsoft Outlook 365, Nextcloud, generic CalDAV.
 """
 import uuid
 from datetime import datetime, timedelta
 
-# Bekannte CalDAV-Server
+# Known CalDAV providers
 PROVIDERS = {
     "apple": {
         "label":    "Apple iCloud",
         "url":      "https://caldav.icloud.com",
         "help": (
-            "Du brauchst ein App-spezifisches Passwort – NICHT dein normales Apple-Passwort.\n"
-            "Schritt 1: Öffne appleid.apple.com\n"
-            "Schritt 2: Anmeldung & Sicherheit → App-spezifische Passwörter\n"
-            "Schritt 3: Klicke '+' und gib einen Namen ein (z.B. 'Erinnerungs-KI')\n"
-            "Schritt 4: Kopiere das generierte Passwort und trage es hier ein."
+            "You need an app-specific password – NOT your regular Apple password.\n"
+            "Step 1: Go to appleid.apple.com\n"
+            "Step 2: Sign-In and Security → App-Specific Passwords\n"
+            "Step 3: Click '+' and enter a name (e.g. 'Reminder AI')\n"
+            "Step 4: Copy the generated password and enter it here."
         ),
         "help_url":  "https://appleid.apple.com",
-        "user_hint": "Apple ID (E-Mail)",
-        "pass_hint": "App-spezifisches Passwort",
+        "user_hint": "Apple ID (email)",
+        "pass_hint": "App-specific password",
     },
     "outlook": {
         "label":    "Microsoft Outlook 365",
         "url":      "https://outlook.office365.com",
         "help": (
-            "Verwende deine Microsoft-E-Mail und dein normales Passwort.\n"
-            "Bei 2-Faktor-Authentifizierung brauchst du ein App-Passwort:\n"
-            "Schritt 1: Öffne account.microsoft.com\n"
-            "Schritt 2: Sicherheit → Erweiterte Sicherheitsoptionen\n"
-            "Schritt 3: App-Passwörter → Neues App-Passwort erstellen\n"
-            "Schritt 4: Trage das generierte Passwort hier ein."
+            "Use your Microsoft email and regular password.\n"
+            "If you have 2-factor authentication, you need an app password:\n"
+            "Step 1: Go to account.microsoft.com\n"
+            "Step 2: Security → Advanced security options\n"
+            "Step 3: App passwords → Create a new app password\n"
+            "Step 4: Enter the generated password here."
         ),
         "help_url":  "https://account.microsoft.com/security",
-        "user_hint": "Microsoft-Konto E-Mail",
-        "pass_hint": "Passwort / App-Passwort",
+        "user_hint": "Microsoft account email",
+        "pass_hint": "Password / App password",
     },
     "nextcloud": {
         "label":    "Nextcloud",
         "url":      "",
         "help": (
-            "Trage die URL deiner Nextcloud-Instanz ein (z.B. https://cloud.example.com).\n"
-            "Benutzername und Passwort sind dieselben wie beim Nextcloud-Login.\n"
-            "Tipp: Du kannst auch ein App-Passwort erstellen unter\n"
-            "Einstellungen → Sicherheit → Geräte & Sitzungen → App-Passwort erstellen."
+            "Enter the URL of your Nextcloud instance (e.g. https://cloud.example.com).\n"
+            "Username and password are the same as your Nextcloud login.\n"
+            "Tip: You can also create an app password under\n"
+            "Settings → Security → Devices & Sessions → Create app password."
         ),
-        "user_hint": "Benutzername",
-        "pass_hint": "Passwort",
+        "user_hint": "Username",
+        "pass_hint": "Password",
         "custom_url": True,
     },
     "caldav": {
-        "label":    "Eigener CalDAV-Server",
+        "label":    "Custom CalDAV Server",
         "url":      "",
         "help": (
-            "Trage die CalDAV-URL deines Servers ein.\n"
-            "Diese findest du in den Einstellungen deines Kalender-Anbieters oder\n"
-            "in der Dokumentation deines Servers (oft /dav/ oder /calendars/)."
+            "Enter the CalDAV URL of your server.\n"
+            "You can find this in your calendar provider's settings or\n"
+            "in your server's documentation (often /dav/ or /calendars/)."
         ),
-        "user_hint": "Benutzername",
-        "pass_hint": "Passwort",
+        "user_hint": "Username",
+        "pass_hint": "Password",
         "custom_url": True,
     },
 }
@@ -96,7 +96,7 @@ def add_event(url: str, username: str, password: str,
         now = datetime.utcnow()
 
         ical = Calendar()
-        ical.add("prodid", "-//Erinnerungs-KI//DE")
+        ical.add("prodid", "-//Reminder-AI//EN")
         ical.add("version", "2.0")
 
         event = iEvent()
@@ -117,7 +117,7 @@ def add_event(url: str, username: str, password: str,
         return uid
 
     except Exception as e:
-        print(f"[caldav] Fehler beim Erstellen: {e}")
+        print(f"[caldav] Error creating event: {e}")
         return None
 
 
@@ -139,5 +139,5 @@ def delete_event(url: str, username: str, password: str, uid: str) -> bool:
                 continue
         return False
     except Exception as e:
-        print(f"[caldav] Fehler beim Löschen: {e}")
+        print(f"[caldav] Error deleting event: {e}")
         return False

@@ -1,13 +1,15 @@
 """
-Erinnerungs-Tool – Tray-Modus
-Startet sofort im System-Tray und hört direkt zu.
-Kein Fenster, keine Klicks nötig.
+Reminder AI – Tray mode
+Starts immediately in the system tray and listens right away.
+No window, no clicks needed.
 """
 import threading
 import collections
 import subprocess
 import sys
 import os
+
+TRAY_STATUS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tray_status.pid")
 
 import pystray
 from PIL import Image, ImageDraw
@@ -16,9 +18,9 @@ from detector import detect_reminder, is_model_installed, pull_model
 from storage import add_reminder, find_reminder_by_keyword, delete_reminder
 from notifier import notify
 from settings import load_settings
-from config import SAMPLE_RATE, WHISPER_LANGUAGE, VAD_MODE
+from config import SAMPLE_RATE, VAD_MODE
 
-# ── Tray-Icon zeichnen ────────────────────────────────────────────────────
+# ── Draw tray icon ────────────────────────────────────────────────────────
 
 def _make_icon(listening: bool) -> Image.Image:
     size = 64
@@ -35,7 +37,7 @@ def _make_icon(listening: bool) -> Image.Image:
     return img
 
 
-# ── Haupt-App ─────────────────────────────────────────────────────────────
+# ── Main app ──────────────────────────────────────────────────────────────
 
 class TrayApp:
     def __init__(self):
@@ -50,16 +52,22 @@ class TrayApp:
             _make_icon(False),
             "Erinnerungs-KI",
             menu=pystray.Menu(
-                pystray.MenuItem("● Zuhören läuft", lambda: None, enabled=False),
+                pystray.MenuItem("● Listening", lambda: None, enabled=False),
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem("Pause / Fortsetzen", self._toggle_pause),
-                pystray.MenuItem("UI öffnen", self._open_ui),
+                pystray.MenuItem("Pause / Resume", self._toggle_pause),
+                pystray.MenuItem("Open UI", self._open_ui),
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem("Beenden", self._quit),
+                pystray.MenuItem("Quit", self._quit),
             ),
         )
 
     def run(self):
+        # Write pid file so UI can detect tray is running
+        try:
+            with open(TRAY_STATUS_FILE, "w") as f:
+                f.write(str(os.getpid()))
+        except Exception:
+            pass
         # Sofort mit Zuhören starten
         threading.Thread(target=self._start_listening, daemon=True).start()
         self._icon.run()
@@ -67,15 +75,15 @@ class TrayApp:
     def _update_icon(self):
         active = self._listening and not self._paused
         self._icon.icon = _make_icon(active)
-        self._icon.title = "Erinnerungs-KI – Zuhört" if active else "Erinnerungs-KI – Pausiert"
+        self._icon.title = "Reminder AI – Listening" if active else "Reminder AI – Paused"
 
     def _toggle_pause(self):
         self._paused = not self._paused
         self._update_icon()
         if self._paused:
-            self._icon.notify("Pausiert", "Erinnerungs-KI hört nicht mehr zu.")
+            self._icon.notify("Paused", "Reminder AI is no longer listening.")
         else:
-            self._icon.notify("Fortgesetzt", "Erinnerungs-KI hört wieder zu.")
+            self._icon.notify("Resumed", "Reminder AI is listening again.")
 
     def _open_ui(self):
         script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui.py")
@@ -88,9 +96,14 @@ class TrayApp:
     def _quit(self):
         self._stop_event.set()
         self._listening = False
+        try:
+            if os.path.exists(TRAY_STATUS_FILE):
+                os.remove(TRAY_STATUS_FILE)
+        except Exception:
+            pass
         self._icon.stop()
 
-    # ── Listener ──────────────────────────────────────────────────────────
+    # ── Listener ─────────────────────────────────────────────────────────
 
     def _start_listening(self):
         try:
@@ -99,22 +112,23 @@ class TrayApp:
             from faster_whisper import WhisperModel
 
             settings = self._settings
-            whisper_model = settings.get("whisper_model", "small")
-            ollama_model  = settings.get("ollama_model", "gemma3:4b")
+            whisper_model    = settings.get("whisper_model", "small")
+            ollama_model     = settings.get("ollama_model", "gemma3:4b")
+            WHISPER_LANGUAGE = settings.get("language", "en")
 
-            # Ollama-Modell sicherstellen
+            # Ensure Ollama model is available
             if not is_model_installed(ollama_model):
-                self._icon.notify("Lade Modell...", f"'{ollama_model}' wird heruntergeladen.")
+                self._icon.notify("Loading model...", f"Downloading '{ollama_model}'.")
                 pull_model(ollama_model)
-                self._icon.notify("Modell bereit", f"'{ollama_model}' wurde geladen.")
+                self._icon.notify("Model ready", f"'{ollama_model}' loaded.")
 
-            # Whisper laden
-            self._icon.notify("Erinnerungs-KI", "Lade Sprachmodell...")
+            # Load Whisper
+            self._icon.notify("Reminder AI", "Loading speech model...")
             whisper = WhisperModel(whisper_model, device="cpu", compute_type="int8")
 
             self._listening = True
             self._update_icon()
-            self._icon.notify("Erinnerungs-KI", "Hört jetzt zu.")
+            self._icon.notify("Reminder AI", "Now listening.")
 
             try:
                 import webrtcvad
@@ -170,13 +184,13 @@ class TrayApp:
                                 result.get("time_expression"),
                                 result.get("original", text),
                             )
-                            time_str = f"\nWann: {reminder['time_expression']}" if reminder.get("time_expression") else ""
-                            self._icon.notify("Erinnerung gespeichert", reminder["task"] + time_str)
+                            time_str = f"\nWhen: {reminder['time_expression']}" if reminder.get("time_expression") else ""
+                            self._icon.notify("Reminder saved", reminder["task"] + time_str)
                     elif action == "delete":
                         found = find_reminder_by_keyword(result.get("target", ""))
                         if found:
                             delete_reminder(found["id"])
-                            self._icon.notify("Erinnerung gelöscht", found["task"])
+                            self._icon.notify("Reminder deleted", found["task"])
 
             def audio_cb(indata, frames, time_info, status):
                 nonlocal triggered, voiced
@@ -213,7 +227,7 @@ class TrayApp:
                 self._stop_event.wait()
 
         except Exception as e:
-            self._icon.notify("Fehler", str(e))
+            self._icon.notify("Error", str(e))
             self._listening = False
             self._update_icon()
 

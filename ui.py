@@ -29,15 +29,144 @@ BORDER   = "#2a2a2a"
 FONT     = "Segoe UI"
 
 WHISPER_MODELS = {
-    "tiny":   {"size": "~75 MB",  "speed": "Sehr schnell", "mb": 75},
-    "base":   {"size": "~145 MB", "speed": "Schnell",      "mb": 145},
-    "small":  {"size": "~465 MB", "speed": "Mittel",       "mb": 465},
-    "medium": {"size": "~1.5 GB", "speed": "Langsam",      "mb": 1500},
-    "large":  {"size": "~3 GB",   "speed": "Sehr langsam", "mb": 3000},
+    "tiny":   {"size": "~75 MB",  "speed_key": "speed_tiny",   "mb": 75},
+    "base":   {"size": "~145 MB", "speed_key": "speed_base",   "mb": 145},
+    "small":  {"size": "~465 MB", "speed_key": "speed_small",  "mb": 465},
+    "medium": {"size": "~1.5 GB", "speed_key": "speed_medium", "mb": 1500},
+    "large":  {"size": "~3 GB",   "speed_key": "speed_large",  "mb": 3000},
 }
 
 # Wie viele Sprach-Segmente werden zusammen analysiert (Kontext-Fenster)
 CONTEXT_WINDOW = 5
+
+TRAY_STATUS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tray_status.pid")
+
+TRANSLATIONS = {
+    "en": {
+        "tab_reminders": "  Reminders  ",
+        "tab_calendar": "  Calendar  ",
+        "whisper_section": "Whisper Model",
+        "whisper_sub": "– Speech Recognition",
+        "speed_tiny":   "Very Fast",
+        "speed_base":   "Fast",
+        "speed_small":  "Medium",
+        "speed_medium": "Slow",
+        "speed_large":  "Very Slow",
+        "badge_ready":   "✓ Ready",
+        "badge_missing": "↓ Not loaded",
+        "ollama_section": "Ollama Model",
+        "ollama_sub": "– Reminder Detection",
+        "entry_placeholder": "e.g. llama3.2:3b",
+        "btn_load": "↓ Load",
+        "listen_section": "Listening",
+        "listen_hint": "Press Start to listen...",
+        "btn_start": "  Start  ",
+        "btn_stop": "  Stop  ",
+        "reminders_title": "Detected Reminders",
+        "status_stopped": "Stopped",
+        "status_starting": "Starting...",
+        "status_listening": "Listening...",
+        "cal_title": "Calendar Integrations",
+        "not_configured": "Not configured",
+        "connected": "● Connected",
+        "not_connected": "Not connected",
+        "configured_not_connected": "Configured – not yet connected",
+        "btn_connect": "Connect",
+        "btn_disconnect": "Disconnect",
+        "btn_edit": "Edit",
+        "btn_setup": "Set up",
+        "tray_running": "Tray running",
+        "tray_stopped": "Tray stopped",
+        "gcal_steps": (
+            "How to set up Google Calendar:\n"
+            "1.  Click 'Open Google Cloud Console'\n"
+            "2.  Create a new project (top left)\n"
+            "3.  APIs & Services  →  Library  →  Enable 'Google Calendar API'\n"
+            "4.  APIs & Services  →  Credentials  →  'Create Credentials'\n"
+            "5.  Choose 'OAuth 2.0 Client ID'  →  Type: Desktop App  →  Create\n"
+            "6.  Click the download icon (↓) next to the created ID\n"
+            "7.  Select the downloaded JSON file with the button below"
+        ),
+        "open_cloud_console": "Open Google Cloud Console",
+        "pick_credentials": "Select credentials.json",
+        "open_guide": "Open guide: ",
+        "checking": "Checking...",
+        "connection_failed": "Connection failed",
+        "fill_fields": "Please fill in all fields",
+        "reminder_detected": "Reminder detected",
+        "reminder_deleted": "Reminder deleted",
+        "error_prefix": "Error: ",
+        "loading_prefix": "Loading ",
+        "model_ready": " ready",
+        "model_loading": "Loading model...",
+        "downloading": "Downloading '",
+        "ollama_loading": "Loading Ollama model '",
+        "pull_failed": "Pull failed: ",
+        "start_loading": "Loading...",
+    },
+    "de": {
+        "tab_reminders": "  Erinnerungen  ",
+        "tab_calendar": "  Kalender  ",
+        "whisper_section": "Whisper Modell",
+        "whisper_sub": "– Spracherkennung",
+        "speed_tiny":   "Sehr schnell",
+        "speed_base":   "Schnell",
+        "speed_small":  "Mittel",
+        "speed_medium": "Langsam",
+        "speed_large":  "Sehr langsam",
+        "badge_ready":   "✓ Bereit",
+        "badge_missing": "↓ Nicht geladen",
+        "ollama_section": "Ollama Modell",
+        "ollama_sub": "– Erinnerungserkennung",
+        "entry_placeholder": "z.B. llama3.2:3b",
+        "btn_load": "↓ Laden",
+        "listen_section": "Zuhören",
+        "listen_hint": "Drücke Start zum Zuhören...",
+        "btn_start": "  Start  ",
+        "btn_stop": "  Stop  ",
+        "reminders_title": "Erkannte Erinnerungen",
+        "status_stopped": "Gestoppt",
+        "status_starting": "Starte...",
+        "status_listening": "Zuhören...",
+        "cal_title": "Kalender-Integrationen",
+        "not_configured": "Nicht eingerichtet",
+        "connected": "● Verbunden",
+        "not_connected": "Nicht verbunden",
+        "configured_not_connected": "Eingerichtet – noch nicht verbunden",
+        "btn_connect": "Verbinden",
+        "btn_disconnect": "Trennen",
+        "btn_edit": "Bearbeiten",
+        "btn_setup": "Einrichten",
+        "tray_running": "Tray läuft",
+        "tray_stopped": "Tray gestoppt",
+        "gcal_steps": (
+            "So richtest du Google Kalender ein:\n"
+            "1.  Klicke 'Google Cloud Console öffnen'\n"
+            "2.  Erstelle ein neues Projekt (oben links)\n"
+            "3.  APIs & Dienste  →  Bibliothek  →  'Google Calendar API' aktivieren\n"
+            "4.  APIs & Dienste  →  Anmeldedaten  →  'Anmeldedaten erstellen'\n"
+            "5.  Wähle 'OAuth 2.0-Client-ID'  →  Typ: Desktop-App  →  Erstellen\n"
+            "6.  Klicke das Download-Symbol (↓) neben der erstellten ID\n"
+            "7.  Wähle die heruntergeladene JSON-Datei mit dem Button unten aus"
+        ),
+        "open_cloud_console": "Google Cloud Console öffnen",
+        "pick_credentials": "credentials.json auswählen",
+        "open_guide": "Anleitung öffnen: ",
+        "checking": "Prüfe...",
+        "connection_failed": "Verbindung fehlgeschlagen",
+        "fill_fields": "Bitte alle Felder ausfüllen",
+        "reminder_detected": "Erinnerung erkannt",
+        "reminder_deleted": "Erinnerung gelöscht",
+        "error_prefix": "Fehler: ",
+        "loading_prefix": "Lade ",
+        "model_ready": " bereit",
+        "model_loading": "Lade Sprachmodell...",
+        "downloading": "Lade '",
+        "ollama_loading": "Lade Ollama-Modell '",
+        "pull_failed": "Pull fehlgeschlagen: ",
+        "start_loading": "Lädt...",
+    },
+}
 
 
 def is_model_cached(model_name: str) -> bool:
@@ -68,8 +197,9 @@ class ReminderApp(tk.Tk):
         self._listening = False
         self._dot_state = 0
         self._settings = load_settings()
+        self._lang = self._settings.get("language", "en")
         self._selected_whisper = self._settings.get("whisper_model", "small")
-        self._selected_ollama = tk.StringVar(value=self._settings.get("ollama_model", "Lade..."))
+        self._selected_ollama = tk.StringVar(value=self._settings.get("ollama_model", "Loading..."))
         self._model_cards = {}
         self._dl_stop = threading.Event()
 
@@ -77,6 +207,7 @@ class ReminderApp(tk.Tk):
         self._load_existing_reminders()
         self._refresh_model_badges()
         self._process_queue()
+        self._check_tray_status()
 
         # Ollama-Modelle im Hintergrund laden
         threading.Thread(target=self._load_ollama_models, daemon=True).start()
@@ -94,10 +225,27 @@ class ReminderApp(tk.Tk):
 
         status_row = tk.Frame(header, bg=BG)
         status_row.pack(side="right", pady=4)
+
+        # Language toggle
+        other_lang = "DE" if self._lang == "en" else "EN"
+        self._lang_btn = tk.Button(
+            status_row, text=other_lang, font=(FONT, 8),
+            bg=BG_ITEM, fg=TEXT_MID, activebackground=ACCENT,
+            activeforeground="white", relief="flat", bd=0,
+            cursor="hand2", padx=7, pady=2,
+            command=self._toggle_language,
+        )
+        self._lang_btn.pack(side="right", padx=(8, 0))
+
+        # Tray status
+        self._tray_label = tk.Label(status_row, text="", font=(FONT, 8),
+                                     bg=BG, fg=TEXT_DIM)
+        self._tray_label.pack(side="right", padx=(0, 6))
+
         self._dot = tk.Label(status_row, text="●", font=(FONT, 12),
                               bg=BG, fg=TEXT_DIM)
         self._dot.pack(side="left")
-        self._status_label = tk.Label(status_row, text="Gestoppt",
+        self._status_label = tk.Label(status_row, text=self._t("status_stopped"),
                                        font=(FONT, 9), bg=BG, fg=TEXT_DIM)
         self._status_label.pack(side="left", padx=(3, 0))
 
@@ -121,8 +269,8 @@ class ReminderApp(tk.Tk):
 
         tab1 = tk.Frame(self._notebook, bg=BG)
         tab2 = tk.Frame(self._notebook, bg=BG)
-        self._notebook.add(tab1, text="  Erinnerungen  ")
-        self._notebook.add(tab2, text="  Kalender  ")
+        self._notebook.add(tab1, text=self._t("tab_reminders"))
+        self._notebook.add(tab2, text=self._t("tab_calendar"))
 
         self._build_tab_main(tab1)
         self._build_tab_calendar(tab2)
@@ -135,9 +283,9 @@ class ReminderApp(tk.Tk):
 
         title_row = tk.Frame(whisper_section, bg=BG_CARD)
         title_row.pack(fill="x", padx=12, pady=(10, 6))
-        tk.Label(title_row, text="Whisper Modell", font=(FONT, 9, "bold"),
+        tk.Label(title_row, text=self._t("whisper_section"), font=(FONT, 9, "bold"),
                  bg=BG_CARD, fg=ACCENT).pack(side="left")
-        tk.Label(title_row, text="– Spracherkennung",
+        tk.Label(title_row, text=self._t("whisper_sub"),
                  font=(FONT, 8), bg=BG_CARD, fg=TEXT_DIM).pack(side="left", padx=6)
 
         self._model_grid = tk.Frame(whisper_section, bg=BG_CARD)
@@ -155,9 +303,9 @@ class ReminderApp(tk.Tk):
         ollama_row = tk.Frame(ollama_section, bg=BG_CARD)
         ollama_row.pack(fill="x", padx=12, pady=10)
 
-        tk.Label(ollama_row, text="Ollama Modell", font=(FONT, 9, "bold"),
+        tk.Label(ollama_row, text=self._t("ollama_section"), font=(FONT, 9, "bold"),
                  bg=BG_CARD, fg=ACCENT).pack(side="left")
-        tk.Label(ollama_row, text="– Erinnerungserkennung",
+        tk.Label(ollama_row, text=self._t("ollama_sub"),
                  font=(FONT, 8), bg=BG_CARD, fg=TEXT_DIM).pack(side="left", padx=6)
 
         # Refresh-Button
@@ -198,7 +346,7 @@ class ReminderApp(tk.Tk):
             highlightthickness=1, highlightcolor=ACCENT,
             highlightbackground=BORDER,
         )
-        self._new_model_entry.insert(0, "z.B. llama3.2:3b")
+        self._new_model_entry.insert(0, self._t("entry_placeholder"))
         self._new_model_entry.config(fg=TEXT_DIM)
         self._new_model_entry.bind("<FocusIn>",  self._entry_focus_in)
         self._new_model_entry.bind("<FocusOut>", self._entry_focus_out)
@@ -206,7 +354,7 @@ class ReminderApp(tk.Tk):
         self._new_model_entry.pack(side="left", fill="x", expand=True, ipady=5, padx=(0, 6))
 
         self._dl_btn = tk.Button(
-            add_row, text="↓ Laden", font=(FONT, 9),
+            add_row, text=self._t("btn_load"), font=(FONT, 9),
             bg=ACCENT, fg="white", activebackground="#5551e0",
             activeforeground="white", relief="flat", bd=0,
             cursor="hand2", padx=10, pady=5,
@@ -240,10 +388,10 @@ class ReminderApp(tk.Tk):
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=20, pady=(8, 0))
         trans_frame = tk.Frame(parent, bg=BG_CARD)
         trans_frame.pack(fill="x", padx=20, pady=(8, 0))
-        tk.Label(trans_frame, text="Zuhören", font=(FONT, 9, "bold"),
+        tk.Label(trans_frame, text=self._t("listen_section"), font=(FONT, 9, "bold"),
                  bg=BG_CARD, fg=ACCENT, pady=8, padx=12).pack(anchor="w")
         self._transcript = tk.Label(
-            trans_frame, text="Drücke Start zum Zuhören...",
+            trans_frame, text=self._t("listen_hint"),
             font=(FONT, 10), bg=BG_CARD, fg=TEXT_DIM,
             wraplength=460, justify="left", anchor="w", pady=6, padx=12,
         )
@@ -252,7 +400,7 @@ class ReminderApp(tk.Tk):
 
         # Start/Stop Button
         self._btn = tk.Button(
-            parent, text="  Start  ", font=(FONT, 11, "bold"),
+            parent, text=self._t("btn_start"), font=(FONT, 11, "bold"),
             bg=ACCENT, fg="white", activebackground="#5551e0",
             activeforeground="white", relief="flat", bd=0,
             cursor="hand2", padx=20, pady=8,
@@ -264,7 +412,7 @@ class ReminderApp(tk.Tk):
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=20)
         header2 = tk.Frame(parent, bg=BG, pady=10)
         header2.pack(fill="x", padx=20)
-        tk.Label(header2, text="Erkannte Erinnerungen",
+        tk.Label(header2, text=self._t("reminders_title"),
                  font=(FONT, 11, "bold"), bg=BG, fg=TEXT).pack(side="left")
         self._count_label = tk.Label(header2, text="0",
                                       font=(FONT, 9), bg=ACCENT,
@@ -307,7 +455,7 @@ class ReminderApp(tk.Tk):
         cv.bind_all("<MouseWheel>",
                     lambda e: cv.yview_scroll(int(-1 * (e.delta / 120)), "units"))
 
-        tk.Label(inner, text="Kalender-Integrationen", font=(FONT, 11, "bold"),
+        tk.Label(inner, text=self._t("cal_title"), font=(FONT, 11, "bold"),
                  bg=BG, fg=TEXT, pady=14, padx=20, anchor="w").pack(fill="x")
 
         self._build_cal_google(inner)
@@ -323,7 +471,7 @@ class ReminderApp(tk.Tk):
 
         left = tk.Frame(hrow, bg=BG_CARD)
         left.pack(side="left", fill="x", expand=True)
-        tk.Label(left, text="Google Kalender", font=(FONT, 10, "bold"),
+        tk.Label(left, text="Google Calendar", font=(FONT, 10, "bold"),
                  bg=BG_CARD, fg=TEXT).pack(anchor="w")
         self._gcal_status = tk.Label(left, text="", font=(FONT, 8),
                                      bg=BG_CARD, fg=TEXT_DIM)
@@ -340,16 +488,7 @@ class ReminderApp(tk.Tk):
         # ── Einrichtungs-Panel (nur wenn nicht konfiguriert) ───────────────
         self._gcal_setup = tk.Frame(card, bg=BG_CARD, padx=12)
 
-        steps = (
-            "So richtest du Google Kalender ein:\n"
-            "1.  Klicke 'Google Cloud Console öffnen'\n"
-            "2.  Erstelle ein neues Projekt (oben links)\n"
-            "3.  APIs & Dienste  →  Bibliothek  →  'Google Calendar API' aktivieren\n"
-            "4.  APIs & Dienste  →  Anmeldedaten  →  'Anmeldedaten erstellen'\n"
-            "5.  Wähle 'OAuth 2.0-Client-ID'  →  Typ: Desktop-App  →  Erstellen\n"
-            "6.  Klicke das Download-Symbol (↓) neben der erstellten ID\n"
-            "7.  Wähle die heruntergeladene JSON-Datei mit dem Button unten aus"
-        )
+        steps = self._t("gcal_steps")
         tk.Label(self._gcal_setup, text=steps, font=(FONT, 8), bg=BG_CARD,
                  fg=TEXT_MID, justify="left", anchor="w",
                  wraplength=440).pack(fill="x", pady=(0, 10))
@@ -358,7 +497,7 @@ class ReminderApp(tk.Tk):
         link_row.pack(fill="x", pady=(0, 12))
 
         tk.Button(
-            link_row, text="Google Cloud Console öffnen", font=(FONT, 8),
+            link_row, text=self._t("open_cloud_console"), font=(FONT, 8),
             bg=BG_ITEM, fg=TEXT, activebackground=ACCENT, activeforeground="white",
             relief="flat", bd=0, cursor="hand2", padx=10, pady=5,
             command=lambda: __import__("webbrowser").open(
@@ -366,7 +505,7 @@ class ReminderApp(tk.Tk):
         ).pack(side="left")
 
         tk.Button(
-            link_row, text="credentials.json auswählen", font=(FONT, 8),
+            link_row, text=self._t("pick_credentials"), font=(FONT, 8),
             bg=ACCENT, fg="white", activebackground="#5551e0", activeforeground="white",
             relief="flat", bd=0, cursor="hand2", padx=10, pady=5,
             command=self._pick_gcal_credentials,
@@ -401,7 +540,7 @@ class ReminderApp(tk.Tk):
         tk.Label(left, text=pinfo["label"], font=(FONT, 10, "bold"),
                  bg=BG_CARD, fg=TEXT).pack(anchor="w")
         status_lbl = tk.Label(left,
-                               text="● Aktiviert" if is_enabled else "Nicht verbunden",
+                               text=self._t("connected") if is_enabled else self._t("not_connected"),
                                font=(FONT, 8), bg=BG_CARD,
                                fg=GREEN if is_enabled else TEXT_DIM)
         status_lbl.pack(anchor="w")
@@ -433,7 +572,7 @@ class ReminderApp(tk.Tk):
                      fg=TEXT_MID, wraplength=400, justify="left",
                      anchor="w").pack(fill="x", pady=(0, 8))
         if pinfo.get("help_url"):
-            tk.Button(form, text=f"Anleitung öffnen: {pinfo['help_url']}",
+            tk.Button(form, text=self._t("open_guide") + pinfo["help_url"],
                       font=(FONT, 7), bg=BG_ITEM, fg=TEXT_DIM,
                       activebackground=ACCENT, activeforeground="white",
                       relief="flat", bd=0, cursor="hand2", padx=8, pady=3,
@@ -442,7 +581,7 @@ class ReminderApp(tk.Tk):
 
         btn_row = tk.Frame(form, bg=BG_CARD)
         btn_row.pack(fill="x", pady=(0, 10))
-        save_btn = tk.Button(btn_row, text="Verbinden", font=(FONT, 8),
+        save_btn = tk.Button(btn_row, text=self._t("btn_connect"), font=(FONT, 8),
                              bg=ACCENT, fg="white", activebackground="#5551e0",
                              activeforeground="white", relief="flat", bd=0,
                              cursor="hand2", padx=10, pady=4)
@@ -455,7 +594,7 @@ class ReminderApp(tk.Tk):
                 form.pack(fill="x")
 
         edit_btn = tk.Button(hrow,
-                             text="Bearbeiten" if is_enabled else "Einrichten",
+                             text=self._t("btn_edit") if is_enabled else self._t("btn_setup"),
                              font=(FONT, 8), bg=BG_ITEM, fg=TEXT,
                              activebackground=ACCENT, activeforeground="white",
                              relief="flat", bd=0, cursor="hand2", padx=10, pady=4,
@@ -464,12 +603,12 @@ class ReminderApp(tk.Tk):
 
         def _disconnect():
             cal_providers.save_provider_config(pid, False)
-            status_lbl.config(text="Nicht verbunden", fg=TEXT_DIM)
-            edit_btn.config(text="Einrichten")
+            status_lbl.config(text=self._t("not_connected"), fg=TEXT_DIM)
+            edit_btn.config(text=self._t("btn_setup"))
             form.pack(fill="x")
             discon_btn.pack_forget()
 
-        discon_btn = tk.Button(hrow, text="Trennen", font=(FONT, 8),
+        discon_btn = tk.Button(hrow, text=self._t("btn_disconnect"), font=(FONT, 8),
                                bg=BG_ITEM, fg=TEXT_DIM,
                                activebackground=ACCENT2, activeforeground="white",
                                relief="flat", bd=0, cursor="hand2", padx=10, pady=4,
@@ -478,13 +617,13 @@ class ReminderApp(tk.Tk):
             discon_btn.pack(side="right", padx=(0, 4))
 
         def _test_connect():
-            save_btn.config(state="disabled", text="Prüfe...")
+            save_btn.config(state="disabled", text=self._t("checking"))
             url  = url_var.get() if pinfo.get("custom_url") else pinfo["url"]
             user = user_var.get().strip()
             pw   = pw_var.get().strip()
             if not user or not pw or (pinfo.get("custom_url") and not url.strip()):
-                status_lbl.config(text="Bitte alle Felder ausfüllen", fg=ACCENT2)
-                save_btn.config(state="normal", text="Verbinden")
+                status_lbl.config(text=self._t("fill_fields"), fg=ACCENT2)
+                save_btn.config(state="normal", text=self._t("btn_connect"))
                 return
 
             def do_test():
@@ -492,16 +631,16 @@ class ReminderApp(tk.Tk):
                 if ok:
                     cal_providers.save_provider_config(pid, True, user, pw, url)
                     def _on_ok():
-                        status_lbl.config(text="● Aktiviert", fg=GREEN)
-                        edit_btn.config(text="Bearbeiten")
-                        save_btn.config(state="normal", text="Speichern")
+                        status_lbl.config(text=self._t("connected"), fg=GREEN)
+                        edit_btn.config(text=self._t("btn_edit"))
+                        save_btn.config(state="normal", text=self._t("btn_connect"))
                         form.pack_forget()
                         discon_btn.pack(side="right", padx=(0, 4))
                     self.after(0, _on_ok)
                 else:
                     def _on_err():
-                        status_lbl.config(text="Verbindung fehlgeschlagen", fg=ACCENT2)
-                        save_btn.config(state="normal", text="Verbinden")
+                        status_lbl.config(text=self._t("connection_failed"), fg=ACCENT2)
+                        save_btn.config(state="normal", text=self._t("btn_connect"))
                     self.after(0, _on_err)
 
             threading.Thread(target=do_test, daemon=True).start()
@@ -518,23 +657,23 @@ class ReminderApp(tk.Tk):
         self._queue.put(("ollama_models", models))
 
     def _entry_focus_in(self, _evt):
-        if self._new_model_var.get() == "z.B. llama3.2:3b":
+        if self._new_model_var.get() == self._t("entry_placeholder"):
             self._new_model_entry.delete(0, "end")
             self._new_model_entry.config(fg=TEXT)
 
     def _entry_focus_out(self, _evt):
         if not self._new_model_var.get().strip():
-            self._new_model_entry.insert(0, "z.B. llama3.2:3b")
+            self._new_model_entry.insert(0, self._t("entry_placeholder"))
             self._new_model_entry.config(fg=TEXT_DIM)
 
     def _download_new_model(self):
         model = self._new_model_var.get().strip()
-        if not model or model == "z.B. llama3.2:3b":
+        if not model or model == self._t("entry_placeholder"):
             return
         self._new_model_entry.delete(0, "end")
         self._new_model_entry.config(fg=TEXT_DIM)
-        self._new_model_entry.insert(0, "z.B. llama3.2:3b")
-        self._dl_btn.config(state="disabled", text="Lädt...")
+        self._new_model_entry.insert(0, self._t("entry_placeholder"))
+        self._dl_btn.config(state="disabled", text=self._t("start_loading"))
         threading.Thread(
             target=self._pull_ollama_model,
             args=(model,),
@@ -566,7 +705,7 @@ class ReminderApp(tk.Tk):
             self._queue.put(("ollama_pull_done", model))
             threading.Thread(target=self._load_ollama_models, daemon=True).start()
         except Exception as e:
-            self._queue.put(("error", f"Pull fehlgeschlagen: {e}"))
+            self._queue.put(("error", self._t("pull_failed") + str(e)))
             self._queue.put(("ollama_pull_done", model))
         finally:
             self._queue.put(("dl_btn_reset",))
@@ -575,17 +714,17 @@ class ReminderApp(tk.Tk):
 
     def _update_gcal_ui(self):
         if not gcal.is_configured():
-            self._gcal_status.config(text="Nicht eingerichtet", fg=ACCENT2)
+            self._gcal_status.config(text=self._t("not_configured"), fg=ACCENT2)
             self._gcal_btn.pack_forget()
             self._gcal_setup.pack(fill="x")
         elif gcal.is_connected():
-            self._gcal_status.config(text="● Verbunden", fg=GREEN)
-            self._gcal_btn.config(text="Trennen", command=self._toggle_gcal)
+            self._gcal_status.config(text=self._t("connected"), fg=GREEN)
+            self._gcal_btn.config(text=self._t("btn_disconnect"), command=self._toggle_gcal)
             self._gcal_btn.pack(side="right")
             self._gcal_setup.pack_forget()
         else:
-            self._gcal_status.config(text="Eingerichtet – noch nicht verbunden", fg=TEXT_DIM)
-            self._gcal_btn.config(text="Verbinden", command=self._toggle_gcal)
+            self._gcal_status.config(text=self._t("configured_not_connected"), fg=TEXT_DIM)
+            self._gcal_btn.config(text=self._t("btn_connect"), command=self._toggle_gcal)
             self._gcal_btn.pack(side="right")
             self._gcal_setup.pack_forget()
 
@@ -613,11 +752,11 @@ class ReminderApp(tk.Tk):
         card.grid(row=row, column=col, padx=3, pady=3, sticky="nsew")
         self._model_grid.columnconfigure(col, weight=1)
 
-        lbl_name  = tk.Label(card, text=name,         font=(FONT, 9, "bold"),
+        lbl_name  = tk.Label(card, text=name,                           font=(FONT, 9, "bold"),
                               bg=bg, fg="white" if selected else TEXT)
-        lbl_size  = tk.Label(card, text=info["size"],  font=(FONT, 7),
+        lbl_size  = tk.Label(card, text=info["size"],                   font=(FONT, 7),
                               bg=bg, fg="#ccc" if selected else TEXT_DIM)
-        lbl_speed = tk.Label(card, text=info["speed"], font=(FONT, 7),
+        lbl_speed = tk.Label(card, text=self._t(info["speed_key"]),     font=(FONT, 7),
                               bg=bg, fg="#ccc" if selected else TEXT_DIM)
         lbl_badge = tk.Label(card, text="...",         font=(FONT, 7),
                               bg=bg, fg=TEXT_DIM)
@@ -662,7 +801,7 @@ class ReminderApp(tk.Tk):
         for name, card in self._model_cards.items():
             cached = is_model_cached(name)
             card["badge"].config(
-                text="✓ Bereit" if cached else "↓ Nicht geladen",
+                text=self._t("badge_ready") if cached else self._t("badge_missing"),
                 fg=GREEN if cached else YELLOW,
             )
 
@@ -670,7 +809,7 @@ class ReminderApp(tk.Tk):
 
     def _show_download(self, model_name: str):
         expected_mb = WHISPER_MODELS[model_name]["mb"]
-        self._dl_label.config(text=f"Lade '{model_name}' herunter...")
+        self._dl_label.config(text=self._t("downloading") + model_name + "'...")
         self._dl_size_label.config(text=f"0 MB / {expected_mb} MB")
         self._progress.config(value=0)
         self._dl_frame.pack(fill="x", padx=20, pady=(6, 0), before=self._btn)
@@ -777,17 +916,17 @@ class ReminderApp(tk.Tk):
 
     def _start_listening(self):
         self._listening = True
-        self._btn.config(text="  Stop  ", bg=ACCENT2, activebackground="#e05570")
-        self._set_status("Starte...", YELLOW)
+        self._btn.config(text=self._t("btn_stop"), bg=ACCENT2, activebackground="#e05570")
+        self._set_status(self._t("status_starting"), YELLOW)
         self._animate_dot()
         threading.Thread(target=self._listener_worker, daemon=True).start()
 
     def _stop_listening(self):
         self._listening = False
-        self._btn.config(text="  Start  ", bg=ACCENT, activebackground="#5551e0")
-        self._set_status("Gestoppt", TEXT_DIM)
+        self._btn.config(text=self._t("btn_start"), bg=ACCENT, activebackground="#5551e0")
+        self._set_status(self._t("status_stopped"), TEXT_DIM)
         self._dot.config(fg=TEXT_DIM)
-        self._transcript.config(text="Drücke Start zum Zuhören...", fg=TEXT_DIM)
+        self._transcript.config(text=self._t("listen_hint"), fg=TEXT_DIM)
 
     def _set_status(self, text, color):
         self._status_label.config(text=text, fg=color)
@@ -807,10 +946,11 @@ class ReminderApp(tk.Tk):
             import numpy as np
             import sounddevice as sd
             from faster_whisper import WhisperModel
-            from config import SAMPLE_RATE, WHISPER_LANGUAGE, VAD_MODE
+            from config import SAMPLE_RATE, VAD_MODE
 
-            whisper_model = self._selected_whisper
-            ollama_model  = self._selected_ollama.get()
+            whisper_model    = self._selected_whisper
+            ollama_model     = self._selected_ollama.get()
+            WHISPER_LANGUAGE = self._settings.get("language", "en")
 
             # ── Ollama-Modell prüfen & ggf. herunterladen ─────────────────
             if not is_model_installed(ollama_model):
@@ -824,7 +964,7 @@ class ReminderApp(tk.Tk):
                     pull_model(ollama_model, progress_callback=_on_prog)
                     self._queue.put(("ollama_pull_done", ollama_model))
                 except Exception as e:
-                    self._queue.put(("error", f"Ollama Pull fehlgeschlagen: {e}"))
+                    self._queue.put(("error", self._t("pull_failed") + str(e)))
                     return
 
 
@@ -833,14 +973,14 @@ class ReminderApp(tk.Tk):
             if not cached:
                 self._queue.put(("download_start", whisper_model))
             else:
-                self._queue.put(("status", f"Lade {whisper_model}...", YELLOW))
+                self._queue.put(("status", self._t("loading_prefix") + whisper_model + "...", YELLOW))
 
             whisper = WhisperModel(whisper_model, device="cpu", compute_type="int8")
 
             if not cached:
                 self._queue.put(("download_done", None))
 
-            self._queue.put(("status", "Zuhören...", GREEN))
+            self._queue.put(("status", self._t("status_listening"), GREEN))
 
             try:
                 import webrtcvad
@@ -968,11 +1108,11 @@ class ReminderApp(tk.Tk):
                 elif kind == "reminder":
                     self._add_reminder_card(msg[1])
                     self._transcript.config(
-                        text=f"Erinnerung erkannt: {msg[1]['task']}", fg=GREEN)
+                        text=f"{self._t('reminder_detected')}: {msg[1]['task']}", fg=GREEN)
                 elif kind == "delete_reminder":
                     self._remove_reminder_card(msg[1])
                     self._transcript.config(
-                        text=f"Erinnerung gelöscht: {msg[2]}", fg=ACCENT2)
+                        text=f"{self._t('reminder_deleted')}: {msg[2]}", fg=ACCENT2)
                 elif kind == "status":
                     self._set_status(msg[1], msg[2])
                 elif kind == "ollama_models":
@@ -982,44 +1122,111 @@ class ReminderApp(tk.Tk):
                         saved = self._settings.get("ollama_model", "")
                         self._selected_ollama.set(saved if saved in models else models[0])
                     else:
-                        self._ollama_combo["values"] = ["(Ollama nicht erreichbar)"]
-                        self._selected_ollama.set("(Ollama nicht erreichbar)")
+                        self._ollama_combo["values"] = ["(Ollama not reachable)"]
+                        self._selected_ollama.set("(Ollama not reachable)")
                 elif kind == "ollama_pull_start":
-                    self._dl_label.config(text=f"Lade Ollama-Modell '{msg[1]}'...")
+                    self._dl_label.config(text=self._t("ollama_loading") + msg[1] + "'...")
                     self._dl_size_label.config(text="")
                     self._progress.config(value=0)
                     self._dl_frame.pack(fill="x", padx=20, pady=(6, 0), before=self._btn)
-                    self._set_status(f"Lade {msg[1]}...", YELLOW)
+                    self._set_status(self._t("loading_prefix") + msg[1] + "...", YELLOW)
                 elif kind == "ollama_pull_progress":
                     self._progress.config(value=msg[1])
                     self._dl_size_label.config(text=msg[2])
                 elif kind == "ollama_pull_done":
                     self._dl_frame.pack_forget()
-                    self._set_status(f"{msg[1]} bereit", GREEN)
+                    self._set_status(msg[1] + self._t("model_ready"), GREEN)
                 elif kind == "dl_btn_reset":
-                    self._dl_btn.config(state="normal", text="↓ Laden")
+                    self._dl_btn.config(state="normal", text=self._t("btn_load"))
                 elif kind == "gcal_connected":
                     self._update_gcal_ui()
                 elif kind == "gcal_error":
-                    self._gcal_status.config(text=f"Fehler: {msg[1]}", fg=ACCENT2)
-                    self._gcal_btn.config(text="Verbinden")
+                    self._gcal_status.config(text=self._t("error_prefix") + msg[1], fg=ACCENT2)
+                    self._gcal_btn.config(text=self._t("btn_connect"))
                 elif kind == "download_start":
                     self._show_download(msg[1])
-                    self._set_status(f"Lade {msg[1]}...", YELLOW)
+                    self._set_status(self._t("loading_prefix") + msg[1] + "...", YELLOW)
                 elif kind == "download_progress":
                     self._progress.config(value=msg[1])
                     self._dl_size_label.config(text=msg[2])
                 elif kind == "download_done":
                     self._hide_download()
-                    self._set_status("Zuhören...", GREEN)
+                    self._set_status(self._t("status_listening"), GREEN)
                 elif kind == "error":
-                    self._set_status(f"Fehler: {msg[1]}", ACCENT2)
+                    self._set_status(self._t("error_prefix") + msg[1], ACCENT2)
                     self._listening = False
-                    self._btn.config(text="  Start  ", bg=ACCENT)
+                    self._btn.config(text=self._t("btn_start"), bg=ACCENT)
                     self._hide_download()
         except queue.Empty:
             pass
         self.after(100, self._process_queue)
+
+    # ── Sprache / Language ────────────────────────────────────────────────
+
+    def _t(self, key: str) -> str:
+        return TRANSLATIONS.get(self._lang, TRANSLATIONS["en"]).get(key, key)
+
+    def _toggle_language(self):
+        self._lang = "de" if self._lang == "en" else "en"
+        self._settings["language"] = self._lang
+        save_settings(self._settings)
+        # Update lang button to show the OTHER language (click to switch)
+        self._lang_btn.config(text="EN" if self._lang == "de" else "DE")
+        # Rebuild notebook to apply new language throughout
+        current_tab = self._notebook.index(self._notebook.select())
+        self._notebook.destroy()
+        style = ttk.Style()
+        style.configure("Dark.TNotebook", background=BG, borderwidth=0,
+                         tabmargins=[20, 8, 0, 0])
+        style.configure("Dark.TNotebook.Tab",
+                         background=BG_ITEM, foreground=TEXT_DIM,
+                         font=(FONT, 9), padding=[14, 6],
+                         borderwidth=0, relief="flat")
+        style.map("Dark.TNotebook.Tab",
+                   background=[("selected", BG_CARD)],
+                   foreground=[("selected", TEXT)])
+        self._notebook = ttk.Notebook(self, style="Dark.TNotebook")
+        self._notebook.pack(fill="both", expand=True)
+        tab1 = tk.Frame(self._notebook, bg=BG)
+        tab2 = tk.Frame(self._notebook, bg=BG)
+        self._notebook.add(tab1, text=self._t("tab_reminders"))
+        self._notebook.add(tab2, text=self._t("tab_calendar"))
+        self._model_cards = {}
+        self._reminder_items = []
+        self._reminder_cards = {}
+        self._build_tab_main(tab1)
+        self._build_tab_calendar(tab2)
+        self._load_existing_reminders()
+        self._refresh_model_badges()
+        threading.Thread(target=self._load_ollama_models, daemon=True).start()
+        try:
+            self._notebook.select(current_tab)
+        except Exception:
+            pass
+        # Update status label text if not listening
+        if not self._listening:
+            self._set_status(self._t("status_stopped"), TEXT_DIM)
+
+    # ── Tray-Status ───────────────────────────────────────────────────────
+
+    def _check_tray_status(self):
+        tray_running = False
+        if os.path.exists(TRAY_STATUS_FILE):
+            try:
+                with open(TRAY_STATUS_FILE) as f:
+                    pid = int(f.read().strip())
+                import signal
+                os.kill(pid, 0)  # raises if process doesn't exist
+                tray_running = True
+            except Exception:
+                tray_running = False
+        if tray_running:
+            self._tray_label.config(
+                text="● " + self._t("tray_running"), fg=GREEN)
+        else:
+            self._tray_label.config(
+                text=self._t("tray_stopped"), fg=TEXT_DIM)
+        self.after(2000, self._check_tray_status)
 
     def _on_frame_configure(self, _):
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
