@@ -11,6 +11,45 @@ import os
 
 TRAY_STATUS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tray_status.pid")
 
+TRAY_TRANSLATIONS = {
+    "en": {
+        "menu_listening":  "● Listening",
+        "menu_pause":      "Pause / Resume",
+        "menu_open_ui":    "Open UI",
+        "menu_quit":       "Quit",
+        "title_active":    "Reminder AI – Listening",
+        "title_paused":    "Reminder AI – Paused",
+        "notif_paused":    ("Paused",      "Reminder AI is no longer listening."),
+        "notif_resumed":   ("Resumed",     "Reminder AI is listening again."),
+        "notif_loading":   ("Reminder AI", "Loading speech model..."),
+        "notif_listening": ("Reminder AI", "Now listening."),
+        "notif_dl_start":  "Downloading",
+        "notif_dl_done":   "Model ready",
+        "notif_saved":     "Reminder saved",
+        "notif_deleted":   "Reminder deleted",
+        "notif_error":     "Error",
+        "when":            "When",
+    },
+    "de": {
+        "menu_listening":  "● Zuhören",
+        "menu_pause":      "Pause / Fortsetzen",
+        "menu_open_ui":    "UI öffnen",
+        "menu_quit":       "Beenden",
+        "title_active":    "Erinnerungs-KI – Zuhört",
+        "title_paused":    "Erinnerungs-KI – Pausiert",
+        "notif_paused":    ("Pausiert",        "Erinnerungs-KI hört nicht mehr zu."),
+        "notif_resumed":   ("Fortgesetzt",     "Erinnerungs-KI hört wieder zu."),
+        "notif_loading":   ("Erinnerungs-KI",  "Lade Sprachmodell..."),
+        "notif_listening": ("Erinnerungs-KI",  "Hört jetzt zu."),
+        "notif_dl_start":  "Lade herunter",
+        "notif_dl_done":   "Modell bereit",
+        "notif_saved":     "Erinnerung gespeichert",
+        "notif_deleted":   "Erinnerung gelöscht",
+        "notif_error":     "Fehler",
+        "when":            "Wann",
+    },
+}
+
 import pystray
 from PIL import Image, ImageDraw
 
@@ -52,14 +91,18 @@ class TrayApp:
             _make_icon(False),
             "Reminder AI",
             menu=pystray.Menu(
-                pystray.MenuItem("● Listening", lambda: None, enabled=False),
+                pystray.MenuItem(lambda item: self._t("menu_listening"), lambda: None, enabled=False),
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem("Pause / Resume", self._toggle_pause),
-                pystray.MenuItem("Open UI", self._open_ui),
+                pystray.MenuItem(lambda item: self._t("menu_pause"),    self._toggle_pause),
+                pystray.MenuItem(lambda item: self._t("menu_open_ui"), self._open_ui),
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem("Quit", self._quit),
+                pystray.MenuItem(lambda item: self._t("menu_quit"),     self._quit),
             ),
         )
+
+    def _t(self, key: str) -> str:
+        lang = load_settings().get("language", "en")
+        return TRAY_TRANSLATIONS.get(lang, TRAY_TRANSLATIONS["en"]).get(key, key)
 
     def run(self):
         # Write pid file so UI can detect tray is running
@@ -75,15 +118,17 @@ class TrayApp:
     def _update_icon(self):
         active = self._listening and not self._paused
         self._icon.icon = _make_icon(active)
-        self._icon.title = "Reminder AI – Listening" if active else "Reminder AI – Paused"
+        self._icon.title = self._t("title_active") if active else self._t("title_paused")
 
     def _toggle_pause(self):
         self._paused = not self._paused
         self._update_icon()
         if self._paused:
-            self._icon.notify("Paused", "Reminder AI is no longer listening.")
+            title, msg = self._t("notif_paused")
+            self._icon.notify(title, msg)
         else:
-            self._icon.notify("Resumed", "Reminder AI is listening again.")
+            title, msg = self._t("notif_resumed")
+            self._icon.notify(title, msg)
 
     def _open_ui(self):
         script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui.py")
@@ -118,17 +163,19 @@ class TrayApp:
 
             # Ensure Ollama model is available
             if not is_model_installed(ollama_model):
-                self._icon.notify("Loading model...", f"Downloading '{ollama_model}'.")
+                self._icon.notify(self._t("notif_dl_start"), f"Downloading '{ollama_model}'.")
                 pull_model(ollama_model)
-                self._icon.notify("Model ready", f"'{ollama_model}' loaded.")
+                self._icon.notify(self._t("notif_dl_done"), f"'{ollama_model}' loaded.")
 
             # Load Whisper
-            self._icon.notify("Reminder AI", "Loading speech model...")
+            title, msg = self._t("notif_loading")
+            self._icon.notify(title, msg)
             whisper = WhisperModel(whisper_model, device="cpu", compute_type="int8")
 
             self._listening = True
             self._update_icon()
-            self._icon.notify("Reminder AI", "Now listening.")
+            title, msg = self._t("notif_listening")
+            self._icon.notify(title, msg)
 
             try:
                 import webrtcvad
@@ -184,13 +231,13 @@ class TrayApp:
                                 result.get("time_expression"),
                                 result.get("original", text),
                             )
-                            time_str = f"\nWhen: {reminder['time_expression']}" if reminder.get("time_expression") else ""
-                            self._icon.notify("Reminder saved", reminder["task"] + time_str)
+                            time_str = f"\n{self._t('when')}: {reminder['time_expression']}" if reminder.get("time_expression") else ""
+                            self._icon.notify(self._t("notif_saved"), reminder["task"] + time_str)
                     elif action == "delete":
                         found = find_reminder_by_keyword(result.get("target", ""))
                         if found:
                             delete_reminder(found["id"])
-                            self._icon.notify("Reminder deleted", found["task"])
+                            self._icon.notify(self._t("notif_deleted"), found["task"])
 
             def audio_cb(indata, frames, time_info, status):
                 nonlocal triggered, voiced
@@ -227,7 +274,7 @@ class TrayApp:
                 self._stop_event.wait()
 
         except Exception as e:
-            self._icon.notify("Error", str(e))
+            self._icon.notify(self._t("notif_error"), str(e))
             self._listening = False
             self._update_icon()
 

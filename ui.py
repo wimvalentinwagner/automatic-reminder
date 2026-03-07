@@ -14,7 +14,7 @@ import gcal
 import caldav_cal
 import calendars as cal_providers
 
-# ── Farben & Stil ──────────────────────────────────────────────────────────
+# ── Colors & Style ─────────────────────────────────────────────────────────
 BG       = "#0f0f0f"
 BG_CARD  = "#1a1a1a"
 BG_ITEM  = "#222222"
@@ -36,13 +36,15 @@ WHISPER_MODELS = {
     "large":  {"size": "~3 GB",   "speed_key": "speed_large",  "mb": 3000},
 }
 
-# Wie viele Sprach-Segmente werden zusammen analysiert (Kontext-Fenster)
+# How many speech segments are analyzed together (context window)
 CONTEXT_WINDOW = 5
 
 TRAY_STATUS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tray_status.pid")
 
 TRANSLATIONS = {
     "en": {
+        "app_name":   "Reminder",
+        "app_suffix": "AI",
         "tab_reminders": "  Reminders  ",
         "tab_calendar": "  Calendar  ",
         "whisper_section": "Whisper Model",
@@ -105,6 +107,8 @@ TRANSLATIONS = {
         "start_loading": "Loading...",
     },
     "de": {
+        "app_name":   "Erinnerungs",
+        "app_suffix": "KI",
         "tab_reminders": "  Erinnerungen  ",
         "tab_calendar": "  Kalender  ",
         "whisper_section": "Whisper Modell",
@@ -209,19 +213,21 @@ class ReminderApp(tk.Tk):
         self._process_queue()
         self._check_tray_status()
 
-        # Ollama-Modelle im Hintergrund laden
+        # Load Ollama models in background
         threading.Thread(target=self._load_ollama_models, daemon=True).start()
 
-    # ── UI aufbauen ────────────────────────────────────────────────────────
+    # ── Build UI ───────────────────────────────────────────────────────────
 
     def _build_ui(self):
         # Header
         header = tk.Frame(self, bg=BG, pady=14)
         header.pack(fill="x", padx=20)
-        tk.Label(header, text="Reminder", font=(FONT, 20, "bold"),
-                 bg=BG, fg=TEXT).pack(side="left")
-        tk.Label(header, text="AI", font=(FONT, 20, "bold"),
-                 bg=BG, fg=ACCENT).pack(side="left")
+        self._header_name_lbl = tk.Label(header, text=self._t("app_name"),
+                                          font=(FONT, 20, "bold"), bg=BG, fg=TEXT)
+        self._header_name_lbl.pack(side="left")
+        self._header_suffix_lbl = tk.Label(header, text=self._t("app_suffix"),
+                                            font=(FONT, 20, "bold"), bg=BG, fg=ACCENT)
+        self._header_suffix_lbl.pack(side="left")
 
         status_row = tk.Frame(header, bg=BG)
         status_row.pack(side="right", pady=4)
@@ -277,7 +283,7 @@ class ReminderApp(tk.Tk):
 
     def _build_tab_main(self, parent):
         style = ttk.Style()
-        # ── Whisper Modellauswahl ──────────────────────────────────────────
+        # ── Whisper model selection ────────────────────────────────────────
         whisper_section = tk.Frame(parent, bg=BG_CARD)
         whisper_section.pack(fill="x", padx=20, pady=(12, 0))
 
@@ -294,7 +300,7 @@ class ReminderApp(tk.Tk):
         for i, (name, info) in enumerate(WHISPER_MODELS.items()):
             self._build_model_card(name, info, row=i // 3, col=i % 3)
 
-        # ── Ollama Modellauswahl ───────────────────────────────────────────
+        # ── Ollama model selection ─────────────────────────────────────────
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=20, pady=(8, 0))
 
         ollama_section = tk.Frame(parent, bg=BG_CARD)
@@ -318,7 +324,7 @@ class ReminderApp(tk.Tk):
         )
         self._refresh_btn.pack(side="right")
 
-        # Dropdown für Ollama-Modelle
+        # Ollama model dropdown
         style = ttk.Style()
         style.theme_use("default")
         style.configure("dark.TCombobox",
@@ -334,7 +340,7 @@ class ReminderApp(tk.Tk):
         self._ollama_combo.pack(fill="x", padx=12, pady=(0, 6))
         self._ollama_combo.bind("<<ComboboxSelected>>", self._on_ollama_model_selected)
 
-        # Neues Modell herunterladen
+        # Download new model
         add_row = tk.Frame(ollama_section, bg=BG_CARD)
         add_row.pack(fill="x", padx=12, pady=(0, 10))
 
@@ -362,7 +368,7 @@ class ReminderApp(tk.Tk):
         )
         self._dl_btn.pack(side="right")
 
-        # ── Download-Fortschritt ───────────────────────────────────────────
+        # ── Download progress ──────────────────────────────────────────────
         self._dl_frame = tk.Frame(parent, bg=BG_CARD)
 
         dl_top = tk.Frame(self._dl_frame, bg=BG_CARD)
@@ -384,7 +390,7 @@ class ReminderApp(tk.Tk):
         )
         self._progress.pack(fill="x", padx=12, pady=(0, 10))
 
-        # Live-Transkript
+        # Live transcript
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=20, pady=(8, 0))
         trans_frame = tk.Frame(parent, bg=BG_CARD)
         trans_frame.pack(fill="x", padx=20, pady=(8, 0))
@@ -485,7 +491,7 @@ class ReminderApp(tk.Tk):
         )
         self._gcal_btn.pack(side="right")
 
-        # ── Einrichtungs-Panel (nur wenn nicht konfiguriert) ───────────────
+        # ── Setup panel (only when not configured) ─────────────────────────
         self._gcal_setup = tk.Frame(card, bg=BG_CARD, padx=12)
 
         steps = self._t("gcal_steps")
@@ -517,8 +523,8 @@ class ReminderApp(tk.Tk):
         import tkinter.filedialog as fd
         import shutil
         path = fd.askopenfilename(
-            title="credentials.json auswählen",
-            filetypes=[("JSON-Datei", "*.json"), ("Alle Dateien", "*.*")],
+            title="Select credentials.json",
+            filetypes=[("JSON file", "*.json"), ("All files", "*.*")],
         )
         if path:
             dest = os.path.join(os.path.dirname(os.path.abspath(__file__)), "credentials.json")
@@ -563,9 +569,9 @@ class ReminderApp(tk.Tk):
         pw_var   = tk.StringVar(value=cfg.get("password", ""))
 
         if pinfo.get("custom_url"):
-            _make_field("Server-URL:", url_var)
-        _make_field(pinfo.get("user_hint", "Benutzer") + ":", user_var)
-        _make_field(pinfo.get("pass_hint", "Passwort") + ":", pw_var, show="*")
+            _make_field("Server URL:", url_var)
+        _make_field(pinfo.get("user_hint", "User") + ":", user_var)
+        _make_field(pinfo.get("pass_hint", "Password") + ":", pw_var, show="*")
 
         if pinfo.get("help"):
             tk.Label(form, text=pinfo["help"], font=(FONT, 8), bg=BG_CARD,
@@ -650,7 +656,7 @@ class ReminderApp(tk.Tk):
         if not is_enabled:
             form.pack(fill="x")
 
-    # ── Ollama Modelle laden & auswählen ──────────────────────────────────
+    # ── Load & select Ollama models ───────────────────────────────────────
 
     def _load_ollama_models(self):
         models = fetch_ollama_models()
@@ -742,7 +748,7 @@ class ReminderApp(tk.Tk):
         except Exception as e:
             self._queue.put(("gcal_error", str(e)))
 
-    # ── Whisper Modell-Karten ──────────────────────────────────────────────
+    # ── Whisper model cards ────────────────────────────────────────────────
 
     def _build_model_card(self, name: str, info: dict, row: int, col: int):
         selected = name == self._selected_whisper
@@ -805,7 +811,7 @@ class ReminderApp(tk.Tk):
                 fg=GREEN if cached else YELLOW,
             )
 
-    # ── Download-Fortschritt ───────────────────────────────────────────────
+    # ── Download progress ──────────────────────────────────────────────────
 
     def _show_download(self, model_name: str):
         expected_mb = WHISPER_MODELS[model_name]["mb"]
@@ -852,7 +858,7 @@ class ReminderApp(tk.Tk):
                  bg=BG_ITEM, fg=TEXT, anchor="w", wraplength=300,
                  justify="left").pack(side="left", fill="x", expand=True)
 
-        # Lösch-Button
+        # Delete button
         def on_delete(rid=reminder["id"], c=card):
             self._remove_reminder_card(rid)
 
@@ -906,7 +912,7 @@ class ReminderApp(tk.Tk):
             card.destroy()
             self._count_label.config(text=str(len(self._reminder_items)))
 
-    # ── Mikrofon Start/Stop ───────────────────────────────────────────────
+    # ── Microphone Start/Stop ─────────────────────────────────────────────
 
     def _toggle_listening(self):
         if not self._listening:
@@ -952,7 +958,7 @@ class ReminderApp(tk.Tk):
             ollama_model     = self._selected_ollama.get()
             WHISPER_LANGUAGE = self._settings.get("language", "en")
 
-            # ── Ollama-Modell prüfen & ggf. herunterladen ─────────────────
+            # ── Check Ollama model, download if missing ────────────────────
             if not is_model_installed(ollama_model):
                 self._queue.put(("ollama_pull_start", ollama_model))
                 try:
@@ -968,7 +974,7 @@ class ReminderApp(tk.Tk):
                     return
 
 
-            # ── Whisper-Modell laden ───────────────────────────────────────
+            # ── Load Whisper model ─────────────────────────────────────────
             cached = is_model_cached(whisper_model)
             if not cached:
                 self._queue.put(("download_start", whisper_model))
@@ -997,7 +1003,7 @@ class ReminderApp(tk.Tk):
             voiced  = []
             triggered = False
 
-            # Kontext-Fenster: letzte N transkribierte Segmente
+            # Context window: last N transcribed segments
             context_buf = collections.deque(maxlen=CONTEXT_WINDOW)
             # Already seen reminders (prevents duplicates)
             seen_reminders: set[str] = set()
@@ -1025,7 +1031,7 @@ class ReminderApp(tk.Tk):
                 context_buf.append(text)
                 self._queue.put(("transcript", text))
 
-                # Analysiere immer den vollen Kontext der letzten N Segmente
+                # Always analyze the full context of the last N segments
                 full_context = " ".join(context_buf)
                 result = detect_reminder(full_context, model=ollama_model)
 
@@ -1035,7 +1041,7 @@ class ReminderApp(tk.Tk):
                         task_key = result["task"].lower().strip()
                         if task_key not in seen_reminders:
                             seen_reminders.add(task_key)
-                            # Calendar events erstellen
+                            # Create calendar events
                             start_dt = None
                             if result.get("time_expression"):
                                 start_dt = gcal.parse_time_expression(
@@ -1096,7 +1102,7 @@ class ReminderApp(tk.Tk):
         except Exception as e:
             self._queue.put(("error", str(e)))
 
-    # ── Queue-Verarbeitung ────────────────────────────────────────────────
+    # ── Queue processing ──────────────────────────────────────────────────
 
     def _process_queue(self):
         try:
@@ -1161,7 +1167,7 @@ class ReminderApp(tk.Tk):
             pass
         self.after(100, self._process_queue)
 
-    # ── Sprache / Language ────────────────────────────────────────────────
+    # ── Language ──────────────────────────────────────────────────────────
 
     def _t(self, key: str) -> str:
         return TRANSLATIONS.get(self._lang, TRANSLATIONS["en"]).get(key, key)
@@ -1172,6 +1178,10 @@ class ReminderApp(tk.Tk):
         save_settings(self._settings)
         # Update lang button to show the OTHER language (click to switch)
         self._lang_btn.config(text="EN" if self._lang == "de" else "DE")
+        # Update header brand labels and window title
+        self._header_name_lbl.config(text=self._t("app_name"))
+        self._header_suffix_lbl.config(text=self._t("app_suffix"))
+        self.title(self._t("app_name") + self._t("app_suffix"))
         # Rebuild notebook to apply new language throughout
         current_tab = self._notebook.index(self._notebook.select())
         self._notebook.destroy()
@@ -1207,7 +1217,7 @@ class ReminderApp(tk.Tk):
         if not self._listening:
             self._set_status(self._t("status_stopped"), TEXT_DIM)
 
-    # ── Tray-Status ───────────────────────────────────────────────────────
+    # ── Tray status ───────────────────────────────────────────────────────
 
     def _check_tray_status(self):
         tray_running = False
